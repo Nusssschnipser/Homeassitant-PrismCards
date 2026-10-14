@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v49";
+const PRISM_VERSION = "v50";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -6527,8 +6527,191 @@ register("prism-consumers-card", PrismConsumersCard, {
 });
 
 
+/* ══════════════════════════════════════════════════════════════
+   25 — Days Card  ·  Quadrat
+   Ein Tageszähler groß, darunter die letzten Tage als Säulen.
+   Die Tageswerte kommen aus der Langzeitstatistik — ein Zähler
+   mit state_class total_increasing liefert sie von selbst, es
+   braucht dafür keine eigenen Helfer je Tag.
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tageswerte aus der Statistik. HA liefert je nach Fassung "change"
+   mit; fehlt es, ergibt sich der Verbrauch aus der Differenz der
+   fortlaufenden Summe. Zwischenspeicher, damit das Blättern durch
+   das Dashboard nicht jedes Mal neu abfragt. */
+const DX_CACHE = {};
+async function fetchDailyStats(hass, id, days) {
+  const n = Math.max(2, Math.min(31, parseInt(days) || 7));
+  const key = id + "|" + n;
+  const hit = DX_CACHE[key];
+  if (hit && Date.now() - hit.t < 10 * 60 * 1000) return hit.v;
+
+  /* Ein Tag mehr als gefragt: der erste Eintrag liefert nur den
+     Ausgangsstand, der Verbrauch ergibt sich erst aus der Differenz
+     zum nächsten. Ohne ihn fehlte die älteste Säule. */
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - n);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const res = await hass.callWS({
+    type: "recorder/statistics_during_period",
+    start_time: start.toISOString(),
+    end_time: end.toISOString(),
+    statistic_ids: [id],
+    period: "day",
+    types: ["sum", "change"],
+  });
+  const rows = (res && res[id]) || [];
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    let v = null;
+    if (r.change !== undefined && r.change !== null) v = Number(r.change);
+    else if (i > 0 && r.sum !== undefined && rows[i - 1].sum !== undefined) v = Number(r.sum) - Number(rows[i - 1].sum);
+    if (v === null || isNaN(v)) continue;
+    out.push({ t: new Date(r.start).getTime(), v: Math.max(0, v) });
+  }
+  DX_CACHE[key] = { t: Date.now(), v: out };
+  return out;
+}
+
+const DX_WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+const DAYS_CSS = NEON_SHELL + `
+.dx-bars{display:flex;gap:4px;height:100%;min-height:0;align-items:stretch}
+.dx-col{flex:1 1 0;display:flex;flex-direction:column;gap:.35em;min-width:0}
+.dx-track{flex:1 1 auto;min-height:0;display:flex;align-items:flex-end}
+.dx-track i{display:block;width:100%;border-radius:4px;background:var(--ac);
+  transition:height .5s cubic-bezier(.2,.8,.2,1)}
+/* Der laufende Tag ist noch nicht vollständig — das zeigt die Karte,
+   statt ihn wie einen abgeschlossenen Tag danebenzustellen. */
+.dx-col.now .dx-track i{opacity:.5}
+.dx-col > span{font-size:var(--t-label);font-weight:700;text-align:center;opacity:.58;
+  white-space:nowrap;overflow:hidden}
+.dx-col.now > span{opacity:.9}
+@media (prefers-reduced-motion: reduce){.dx-track i{transition:none}}
+`;
+
+class PrismDaysCard extends PrismCard {
+  static defaults = { title: "Gas", icon: "mdi:fire", days: 7, accent: "#F97316" };
+  static stub = { title: "Gas", icon: "mdi:fire", days: 7 };
+  static css = DAYS_CSS;
+
+  setConfig(config) {
+    super.setConfig(config);
+    this._days = null; this._statKey = null; this._statTs = 0;
+  }
+  onHass() { this._maybeFetch(); }
+
+  async _maybeFetch() {
+    const hass = this._hass, cfg = this._config;
+    const id = cfg.statistic || cfg.total;
+    if (!id) return;
+    const key = id + "|" + (cfg.days || 7);
+    const now = Date.now();
+    if (this._statKey === key && now - this._statTs < 10 * 60 * 1000) return;
+    this._statKey = key; this._statTs = now;
+    try {
+      this._days = await fetchDailyStats(hass, id, cfg.days);
+      this._sig = null;
+      this._render();
+    } catch (e) { this._days = []; }
+  }
+
+  view(hass, cfg) {
+    const unit = uom(hass, cfg.today || cfg.statistic || cfg.total, "kWh");
+    const today = cfg.today ? num(hass, cfg.today) : null;
+    const total = cfg.total ? num(hass, cfg.total) : null;
+    const rows = this._days || [];
+
+    /* Der heutige Balken kommt aus dem Tageszähler, der sich laufend
+       aktualisiert — die Statistik hinkt bis zu einer Stunde hinterher. */
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const bars = rows.slice();
+    const last = bars.length ? bars[bars.length - 1] : null;
+    if (today !== null) {
+      if (last && last.t >= midnight.getTime()) last.v = today;
+      else bars.push({ t: midnight.getTime(), v: today });
+    }
+    const show = bars.slice(-(Math.max(2, Math.min(31, parseInt(cfg.days) || 7))));
+    let max = 0;
+    show.forEach((b) => { if (b.v > max) max = b.v; });
+    if (!max) max = 1;
+
+    /* Der Schnitt zählt nur abgeschlossene Tage — heute verfälscht ihn */
+    const done = show.filter((b) => b.t < midnight.getTime());
+    const avg = done.length ? done.reduce((a, b) => a + b.v, 0) / done.length : null;
+
+    let state = "Heute";
+    if (today !== null && avg) {
+      const d = ((today - avg) / avg) * 100;
+      state = (d >= 0 ? "+" : "") + fmt0(d) + " % zum Schnitt";
+    }
+
+    return {
+      tone: "ember", from: "#6B3410", to: "#160802", ink: "#FFF1E6",
+      fill: 0, quiet: false,
+      sig: [today, total, show.map((b) => b.t + ":" + b.v.toFixed(2)).join("|")],
+      head: this.head(cfg.icon || "mdi:fire", cfg.title, esc(state)),
+      body: `<div><div class="nx-num nx-big" style="color:${esc(cfg.accent || "#F97316")}">${
+          today === null ? "–" : fmt(today, 1)}<small>${esc(unit)}</small></div></div>
+        <div class="nx-plot">${show.length
+          ? `<div class="dx-bars">${show.map((b) => {
+              const d = new Date(b.t);
+              const isNow = b.t >= midnight.getTime();
+              return `<div class="dx-col${isNow ? " now" : ""}" title="${esc(
+                DX_WD[d.getDay()] + " " + fmt(b.v, 1) + " " + unit)}">
+                <span class="dx-track"><i style="height:${Math.max(2, (b.v / max) * 100).toFixed(1)}%"></i></span>
+                <span>${esc(DX_WD[d.getDay()])}</span>
+              </div>`;
+            }).join("")}</div>`
+          : `<div class="nx-empty">${(cfg.statistic || cfg.total)
+              ? "Tageswerte werden geladen…" : "Keine Entität für den Verlauf."}</div>`}</div>`,
+      foot: `<div class="nx-tiles t2">
+          ${nxTile("Ø " + (show.length ? show.length - (done.length < show.length ? 1 : 0) : 0) + " Tage",
+            avg === null ? "–" : fmt(avg, 1) + " " + unit, cfg.statistic || cfg.total)}
+          ${nxTile("Zähler", total === null ? "–" : fmt0(total), cfg.total)}
+        </div>`,
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) card.style.setProperty("--ac", cfg.accent || "#F97316");
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.today || cfg.total);
+  }
+}
+
+register("prism-days-card", PrismDaysCard, {
+  name: "Prism Days Card",
+  description: "Quadrat. Ein Tageszähler groß, darunter die letzten Tage als Säulen aus der Langzeitstatistik.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "statistic", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "total", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "days", selector: { number: { min: 2, max: 31, mode: "box", unit_of_measurement: "Tage" } } },
+  { name: "accent", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  today: "Tageszähler für die große Zahl und den heutigen Balken",
+  statistic: "Fortlaufender Zähler, aus dem die Tageswerte kommen (leer = Zähler unten)",
+  total: "Fortlaufender Zähler für die Kachel „Zähler“",
+  days: "Wie viele Tage die Säulen zeigen",
+  accent: "Farbe der Säulen",
+});
+
+
 console.info(
-  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 13 Quadrate + 9 Doppel + 2 Mini ",
+  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 14 Quadrate + 9 Doppel + 2 Mini ",
   "background:#0B0A14;color:#FFC24B;font-weight:700",
   "background:#FFC24B;color:#0B0A14"
 );
