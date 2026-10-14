@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v46";
+const PRISM_VERSION = "v47";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -5597,8 +5597,915 @@ register("prism-camera-card", PrismCameraCard, {
   refresh_interval: "Wie oft ein neues Standbild geholt wird",
 });
 
+/* ══════════════════════════════════════════════════════════════
+   Energieseite — gemeinsamer Grund
+   Die sechs folgenden Karten gehören zusammen und teilen sich
+   dieselbe dunkle Neon-Fläche wie die Energie-Karte. Die helle
+   Basisfläche (wash/rise) entfällt; jede Karte setzt --ac als
+   ihren Akzent und --g1 als obersten Ton des Radialverlaufs.
+   ══════════════════════════════════════════════════════════════ */
+
+const NEON_SHELL = `
+.card{
+  background:radial-gradient(120% 140% at 80% -20%,var(--g1,#123244) 0%,#08131F 55%,#04070E 100%);
+  border-color:rgba(45,212,191,.24);
+  -webkit-mask-image:-webkit-radial-gradient(#fff,#000);
+  mask-image:radial-gradient(#fff,#000);
+}
+.card > .wash,.card > .rise{display:none}
+.card > .gloss{z-index:1;opacity:.5}
+.card > .zh,.card > .zb,.card > .zf,.card > .zd,.card > .zs{position:relative;z-index:2}
+.badge{background:rgba(255,255,255,.10);color:var(--ac,#A3E635)}
+
+/* Zahlen */
+.nx-num{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
+  letter-spacing:-.04em;line-height:.9;display:flex;align-items:baseline;gap:.1em}
+.nx-num small{font-size:.36em;font-weight:500;opacity:.78}
+.nx-hero{font-size:var(--t-hero)}
+.nx-big{font-size:var(--t-big)}
+.nx-cap{font-size:var(--t-body);opacity:.78;margin-top:.35em}
+.nx-duo{display:grid;grid-template-columns:1fr 1fr;gap:var(--p-pad)}
+
+/* Kacheln der Fußzeile */
+.nx-tiles{display:grid;gap:4px}
+.nx-tiles.t2{grid-template-columns:1fr 1fr}
+.nx-tiles.t3{grid-template-columns:repeat(3,1fr)}
+.nx-tile{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:calc(var(--p-pad) * .5) calc(var(--p-pad) * .45);min-width:0}
+.nx-tile[data-mi]{cursor:pointer}
+.nx-tile .k{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;opacity:.64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nx-tile .v{display:block;margin-top:.3em;font-family:var(--p-mono);font-weight:700;
+  font-size:var(--t-value);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Graphfläche */
+.nx-plot{position:relative;min-height:0;height:100%;display:flex}
+.nx-plot svg{display:block;width:100%;height:100%;overflow:visible}
+.nx-grid{stroke:#EAFDFF;opacity:.10;stroke-width:.5;stroke-dasharray:3 4}
+.nx-axis{stroke:rgba(255,255,255,.26);stroke-width:.8}
+.nx-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.192),13px);opacity:.6;text-align:center}
+
+/* Legende */
+.nx-leg{display:flex;flex-wrap:wrap;gap:.2em .9em;font-size:var(--t-label);font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;opacity:.72}
+.nx-leg i{display:inline-block;width:.6em;height:.6em;border-radius:2px;margin-right:.4em}
+`;
+
+/* Doppelkarten dieser Reihe nutzen die volle Breite statt der
+   zweigeteilten Grundform — sonst bliebe die rechte Spalte leer. */
+const NEON_FULL = `
+.card.dbl.nx-full{grid-template-columns:minmax(0,1fr);grid-template-areas:"h" "b" "f";
+  grid-template-rows:auto minmax(0,1fr) auto}
+.card.nx-full > .zd{display:none}
+`;
+
+/* Prozentring — gemeinsame Geometrie von Gauge- und Bilanzkarte */
+const NX_R = 40;
+const NX_C = 2 * Math.PI * NX_R;
+function nxRing(pct, color, width) {
+  const p = pct === null || pct === undefined || isNaN(pct) ? 0 : Math.max(0, Math.min(100, pct));
+  const w = width || 9;
+  return `<circle cx="50" cy="50" r="${NX_R}" fill="none" stroke="rgba(255,255,255,.13)" stroke-width="${w}"></circle>
+    <circle cx="50" cy="50" r="${NX_R}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round"
+      stroke-dasharray="${(NX_C * p / 100).toFixed(1)} ${NX_C.toFixed(1)}"
+      transform="rotate(-90 50 50)"></circle>`;
+}
+
+/* Leistung immer in kW, egal ob der Sensor W oder kW liefert */
+function nxKw(hass, id) {
+  const v = num(hass, id);
+  if (v === null) return null;
+  const u = String(uom(hass, id, "kW")).toLowerCase();
+  return u === "w" ? v / 1000 : u === "mw" ? v * 1000 : v;
+}
+/* Leistung lesbar setzen: unter 1 kW in Watt, darüber in kW */
+function nxPower(kw) {
+  if (kw === null || kw === undefined || isNaN(kw)) return { v: "–", u: "" };
+  const a = Math.abs(kw);
+  return a < 1 ? { v: fmt0(kw * 1000), u: "W" } : { v: fmt(kw, 1), u: "kW" };
+}
+/* Eine Fußkachel, optional mit Sprung in die Entität */
+function nxTile(k, v, mi) {
+  return `<div class="nx-tile"${mi ? ` data-mi="${esc(mi)}"` : ""}>
+    <span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   19 — Gauge Card  ·  Quadrat
+   Ein Prozentwert als Ring, darin ein zweiter Wert, darunter
+   zwei Kacheln. Gedacht für Batterie-Ladestand und Autarkie.
+   ══════════════════════════════════════════════════════════════ */
+
+const GAUGE_CSS = NEON_SHELL + `
+.gx-ring{position:relative;flex:1 1 auto;min-height:0;display:grid;place-items:center}
+.gx-ring svg{height:100%;max-height:100%;aspect-ratio:1}
+.gx-mid{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.gx-mid b{display:block;font-family:var(--p-mono);font-weight:700;font-size:var(--t-big);
+  letter-spacing:-.04em;line-height:1;color:var(--ac)}
+.gx-mid span{display:block;margin-top:.25em;font-size:var(--t-label);font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;opacity:.68}
+`;
+
+class PrismGaugeCard extends PrismCard {
+  static defaults = { title: "Ladestand", icon: "mdi:battery-70", accent: "#22D3EE", min: 0, max: 100 };
+  static stub = { title: "Ladestand", icon: "mdi:battery-70" };
+  static css = GAUGE_CSS;
+
+  view(hass, cfg) {
+    const raw = num(hass, cfg.entity);
+    const lo = cfg.min === undefined || cfg.min === null ? 0 : Number(cfg.min);
+    const hi = cfg.max === undefined || cfg.max === null ? 100 : Number(cfg.max);
+    const span = hi - lo || 1;
+    const pct = raw === null ? null : ((raw - lo) / span) * 100;
+    const ac = cfg.accent || "#22D3EE";
+
+    /* Der Wert in der Mitte: eigener Sensor, sonst der Ringwert selbst */
+    let mid = raw === null ? "–" : fmt0(raw) + " " + uom(hass, cfg.entity, "%");
+    let sub = cfg.sub_label || "";
+    if (cfg.sub_entity) {
+      const s = nxKw(hass, cfg.sub_entity);
+      const u = String(uom(hass, cfg.sub_entity, "")).toLowerCase();
+      sub = (u === "w" || u === "kw" || u === "mw")
+        ? (function () { const p = nxPower(s); return p.v + " " + p.u; })()
+        : (num(hass, cfg.sub_entity) === null ? "–" : fmt(num(hass, cfg.sub_entity), 1) + " " + uom(hass, cfg.sub_entity, ""));
+    }
+
+    const state = cfg.state_text || (cfg.state_entity ? friendly(hass, cfg.state_entity, stateOf(hass, cfg.state_entity)) : "");
+
+    return {
+      tone: "ocean", from: "#0E7490", to: "#04161C", ink: "#EAFDFF",
+      fill: 0, quiet: false,
+      sig: [raw, sub, state],
+      head: this.head(cfg.icon || "mdi:gauge", cfg.title, state ? esc(state) : ""),
+      body: `<div class="gx-ring">
+          <svg viewBox="0 0 100 100" role="img" aria-label="${esc(cfg.title)} ${mid}">${nxRing(pct, ac)}</svg>
+          <div class="gx-mid"><div><b>${esc(mid)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}</div></div>
+        </div>`,
+      foot: (cfg.left_entity || cfg.right_entity)
+        ? `<div class="nx-tiles t2">
+             ${cfg.left_entity ? nxTile(cfg.left_name || friendly(hass, cfg.left_entity, "Links"),
+               num(hass, cfg.left_entity) === null ? "–" : fmt(num(hass, cfg.left_entity), 1) + " " + uom(hass, cfg.left_entity, ""),
+               cfg.left_entity) : ""}
+             ${cfg.right_entity ? nxTile(cfg.right_name || friendly(hass, cfg.right_entity, "Rechts"),
+               num(hass, cfg.right_entity) === null ? "–" : fmt(num(hass, cfg.right_entity), 1) + " " + uom(hass, cfg.right_entity, ""),
+               cfg.right_entity) : ""}
+           </div>`
+        : "",
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) card.style.setProperty("--ac", cfg.accent || "#22D3EE");
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.entity);
+  }
+}
+
+register("prism-gauge-card", PrismGaugeCard, {
+  name: "Prism Gauge Card",
+  description: "Quadrat. Ein Prozentwert als Ring mit zweitem Wert in der Mitte und zwei Kacheln darunter.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "sub_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "sub_label", selector: { text: {} } },
+  { name: "state_entity", selector: { entity: {} } },
+  { name: "state_text", selector: { text: {} } },
+  { name: "accent", selector: { text: {} } },
+  { name: "min", selector: { number: { mode: "box" } } },
+  { name: "max", selector: { number: { mode: "box" } } },
+  { name: "left_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "left_name", selector: { text: {} } },
+  { name: "right_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "right_name", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  entity: "Entität für den Ring (Pflicht)",
+  sub_entity: "Wert in der Ringmitte unter der Zahl",
+  sub_label: "Fester Text statt des Werts in der Ringmitte",
+  state_entity: "Entität für die Statuszeile",
+  state_text: "Fester Text für die Statuszeile",
+  accent: "Akzentfarbe des Rings, z. B. #22D3EE",
+  min: "Kleinster Wert des Rings",
+  max: "Größter Wert des Rings",
+  left_entity: "Linke Kachel",
+  left_name: "Beschriftung der linken Kachel",
+  right_entity: "Rechte Kachel",
+  right_name: "Beschriftung der rechten Kachel",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   20 — Meter Card  ·  Quadrat
+   Eine vorzeichenbehaftete Leistung — Bezug nach oben, Abgabe
+   nach unten, mit Tagessäulen um die Nulllinie. Für das Netz.
+   ══════════════════════════════════════════════════════════════ */
+
+const METER_CSS = NEON_SHELL + `
+.mx-in{color:var(--ac-in,#A78BFA)}
+.mx-out{color:var(--ac-out,#7EE8B5)}
+.mx-zero{opacity:.86}
+`;
+
+class PrismMeterCard extends PrismCard {
+  static defaults = { title: "Netz", icon: "mdi:transmission-tower", hours: 24,
+    in_label: "Bezug", out_label: "Einspeisung", in_color: "#A78BFA", out_color: "#7EE8B5", deadband: 0.03 };
+  static stub = { title: "Netz", icon: "mdi:transmission-tower", hours: 24 };
+  static css = METER_CSS;
+
+  setConfig(config) {
+    super.setConfig(config);
+    this._hist = null; this._histTs = 0; this._histKey = null;
+  }
+  onHass() { this._maybeFetch(); }
+
+  async _maybeFetch() {
+    const hass = this._hass, cfg = this._config;
+    if (!cfg.power) return;
+    const key = cfg.power + "|" + (cfg.hours || 24);
+    const now = Date.now();
+    if (this._histKey === key && now - this._histTs < 5 * 60 * 1000) return;
+    this._histKey = key; this._histTs = now;
+    try {
+      const res = await fetchHistory(hass, [cfg.power], parseInt(cfg.hours) || 24);
+      this._hist = res[cfg.power] || [];
+      this._sig = null;
+      this._render();
+    } catch (e) { /* Verlauf nicht verfügbar */ }
+  }
+
+  /* Säulen um die Nulllinie: positive Werte nach oben, negative nach
+     unten, beide auf denselben Maßstab bezogen. */
+  _bars(w, h, bins) {
+    const pts = this._hist || [];
+    if (pts.length < 2) return null;
+    const n = bins || 28;
+    let t0 = Infinity, t1 = -Infinity;
+    pts.forEach((p) => { if (p.t < t0) t0 = p.t; if (p.t > t1) t1 = p.t; });
+    const span = t1 - t0 || 1;
+    const sum = new Array(n).fill(0), cnt = new Array(n).fill(0);
+    pts.forEach((p) => {
+      const i = Math.min(n - 1, Math.max(0, Math.floor(((p.t - t0) / span) * n)));
+      sum[i] += p.v; cnt[i] += 1;
+    });
+    const vals = sum.map((s, i) => (cnt[i] ? s / cnt[i] : null));
+    let max = 0;
+    vals.forEach((v) => { if (v !== null && Math.abs(v) > max) max = Math.abs(v); });
+    if (!max) max = 1;
+    const mid = h / 2, gap = 1.6, bw = Math.max(1.5, w / n - gap);
+    return vals.map((v, i) => {
+      if (v === null) return "";
+      const x = (i * w) / n;
+      const len = Math.max(1, (Math.abs(v) / max) * (mid - 3));
+      const up = v >= 0;
+      const col = up ? "var(--ac-in,#A78BFA)" : "var(--ac-out,#7EE8B5)";
+      return `<rect x="${x.toFixed(1)}" y="${(up ? mid - len : mid).toFixed(1)}"
+        width="${bw.toFixed(1)}" height="${len.toFixed(1)}" rx="1.5" fill="${col}" opacity=".92"></rect>`;
+    }).join("");
+  }
+
+  view(hass, cfg) {
+    const kw = nxKw(hass, cfg.power);
+    const dead = cfg.deadband === undefined ? 0.03 : Number(cfg.deadband);
+    const p = nxPower(kw);
+
+    let word = "Ausgeglichen", cls = "mx-zero";
+    if (kw !== null && kw > dead) { word = cfg.in_label || "Bezug"; cls = "mx-in"; }
+    else if (kw !== null && kw < -dead) { word = cfg.out_label || "Einspeisung"; cls = "mx-out"; }
+
+    /* Im Ausgleich bleibt die Null stehen, sonst der Betrag */
+    const show = kw === null ? { v: "–", u: "" }
+      : (Math.abs(kw) <= dead ? { v: "0", u: "W" } : nxPower(Math.abs(kw)));
+
+    const w = 300, h = 120;
+    const bars = this._bars(w, h);
+
+    return {
+      tone: "violet", from: "#3B2E6B", to: "#0A0718", ink: "#EAF1FF",
+      fill: 0, quiet: false,
+      sig: [kw, (this._hist || []).length],
+      head: this.head(cfg.icon || "mdi:transmission-tower", cfg.title, esc(word)),
+      body: `<div><div class="nx-num nx-big ${cls}">${esc(show.v)}<small>${esc(show.u)}</small></div></div>
+        <div class="nx-plot">${bars
+          ? `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img"
+                aria-label="Verlauf der letzten ${esc(String(parseInt(cfg.hours) || 24))} Stunden">
+               <line class="nx-axis" x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}"></line>${bars}</svg>`
+          : `<div class="nx-empty">${cfg.power ? "Verlauf wird geladen…" : "Keine Entität gewählt."}</div>`}</div>`,
+      foot: (cfg.in_today || cfg.out_today)
+        ? `<div class="nx-tiles t2">
+             ${cfg.in_today ? nxTile(cfg.in_label || "Bezug",
+               num(hass, cfg.in_today) === null ? "–" : fmt(num(hass, cfg.in_today), 1) + " " + uom(hass, cfg.in_today, "kWh"),
+               cfg.in_today) : ""}
+             ${cfg.out_today ? nxTile(cfg.out_label || "Einspeisung",
+               num(hass, cfg.out_today) === null ? "–" : fmt(num(hass, cfg.out_today), 1) + " " + uom(hass, cfg.out_today, "kWh"),
+               cfg.out_today) : ""}
+           </div>`
+        : "",
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) {
+      card.style.setProperty("--ac", cfg.in_color || "#A78BFA");
+      card.style.setProperty("--ac-in", cfg.in_color || "#A78BFA");
+      card.style.setProperty("--ac-out", cfg.out_color || "#7EE8B5");
+    }
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.power);
+  }
+}
+
+register("prism-meter-card", PrismMeterCard, {
+  name: "Prism Meter Card",
+  description: "Quadrat. Vorzeichenbehaftete Leistung mit Tagessäulen um die Nulllinie — Bezug nach oben, Abgabe nach unten.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "power", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "in_today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "out_today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "in_label", selector: { text: {} } },
+  { name: "out_label", selector: { text: {} } },
+  { name: "in_color", selector: { text: {} } },
+  { name: "out_color", selector: { text: {} } },
+  { name: "deadband", selector: { number: { min: 0, max: 5, step: 0.01, mode: "box", unit_of_measurement: "kW" } } },
+  { name: "hours", selector: { number: { min: 1, max: 168, mode: "box", unit_of_measurement: "h" } } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  power: "Leistung, vorzeichenbehaftet (Pflicht)",
+  in_today: "Tageszähler für die positive Richtung",
+  out_today: "Tageszähler für die negative Richtung",
+  in_label: "Wort für die positive Richtung",
+  out_label: "Wort für die negative Richtung",
+  in_color: "Farbe der positiven Richtung",
+  out_color: "Farbe der negativen Richtung",
+  deadband: "Ab welchem Betrag nicht mehr „ausgeglichen“ gilt",
+  hours: "Zeitfenster der Säulen",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   21 — Forecast Card  ·  Quadrat
+   Tagesprognose als Kurve. Die Stundenwerte kommen aus dem
+   Attribut hourly_forecast (oder hours) der Prognose-Entität;
+   der bereits verstrichene Teil des Tages wird hinterlegt.
+   ══════════════════════════════════════════════════════════════ */
+
+const FORECAST_CSS = NEON_SHELL + `
+.fx-now{stroke:#EAFDFF;stroke-opacity:.5;stroke-width:1.4}
+.fx-past{fill:rgba(255,255,255,.07)}
+`;
+
+class PrismForecastCard extends PrismCard {
+  static defaults = { title: "Prognose", icon: "mdi:weather-sunny", accent: "#FFC24B" };
+  static stub = { title: "Prognose", icon: "mdi:weather-sunny" };
+  static css = FORECAST_CSS;
+
+  onHass() {
+    /* Der Schattenbereich wandert mit der Uhrzeit, auch ohne neue Werte */
+    if (!this._tick) this._tick = setInterval(() => { this._sig = null; this._render(); }, 300000);
+  }
+
+  /* Stundenwerte als {h, v}; akzeptiert "08:00" wie auch "8" als Schlüssel */
+  _hours(hass, cfg) {
+    const st = cfg.today ? hass.states[cfg.today] : null;
+    if (!st) return [];
+    const a = st.attributes || {};
+    const src = a.hourly_forecast || a.hours;
+    if (!src || typeof src !== "object") return [];
+    const out = [];
+    Object.keys(src).forEach((k) => {
+      const h = parseInt(String(k).split(":")[0]);
+      const v = Number(src[k]);
+      if (!isNaN(h) && !isNaN(v)) out.push({ h: h, v: v });
+    });
+    out.sort((x, y) => x.h - y.h);
+    return out;
+  }
+
+  view(hass, cfg) {
+    const total = num(hass, cfg.today);
+    const rest = cfg.remaining ? num(hass, cfg.remaining) : null;
+    const tom = cfg.tomorrow ? num(hass, cfg.tomorrow) : null;
+    const act = cfg.actual ? num(hass, cfg.actual) : null;
+    const ac = cfg.accent || "#FFC24B";
+    const rows = this._hours(hass, cfg);
+
+    const w = 300, h = 110;
+    let plot = null;
+    if (rows.length > 2) {
+      let max = 0;
+      rows.forEach((r) => { if (r.v > max) max = r.v; });
+      if (!max) max = 1;
+      const top = 8;
+      const X = (hh) => (hh / 23) * w;
+      const Y = (v) => h - (v / max) * (h - top);
+      const line = rows.map((r, i) => (i ? "L" : "M") + X(r.h).toFixed(1) + " " + Y(r.v).toFixed(1)).join(" ");
+      const area = `M${X(rows[0].h).toFixed(1)} ${h} ` + line.slice(1) +
+        ` L${X(rows[rows.length - 1].h).toFixed(1)} ${h} Z`;
+      const d = new Date();
+      const nowX = X(d.getHours() + d.getMinutes() / 60);
+      plot = { line: line, area: area, nowX: nowX };
+    }
+
+    /* Die Statuszeile vergleicht Ist und Soll, sobald beides da ist */
+    let state = "Heute";
+    if (act !== null && total) {
+      const q = (act / total) * 100;
+      state = fmt0(q) + " % erreicht";
+    }
+
+    return {
+      tone: "amber", from: "#6B4A12", to: "#140D02", ink: "#FFF7E8",
+      fill: 0, quiet: false,
+      sig: [total, rest, tom, act, rows.length, new Date().getHours()],
+      head: this.head(cfg.icon || "mdi:weather-sunny", cfg.title, esc(state)),
+      body: `<div><div class="nx-num nx-big" style="color:${esc(ac)}">${
+          total === null ? "–" : fmt(total, 1)}<small>${esc(uom(hass, cfg.today, "kWh"))}</small></div></div>
+        <div class="nx-plot">${plot
+          ? `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img"
+                aria-label="Erwarteter Tagesverlauf">
+               <defs><linearGradient id="fx-g" x1="0" y1="0" x2="0" y2="1">
+                 <stop offset="0" stop-color="${esc(ac)}" stop-opacity=".45"/>
+                 <stop offset="1" stop-color="${esc(ac)}" stop-opacity="0"/>
+               </linearGradient></defs>
+               <path class="fx-past" d="M0 0 H${plot.nowX.toFixed(1)} V${h} H0 Z"></path>
+               <path d="${plot.area}" fill="url(#fx-g)"></path>
+               <path d="${plot.line}" fill="none" stroke="${esc(ac)}" stroke-width="2.2"
+                 stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+               <line class="fx-now" x1="${plot.nowX.toFixed(1)}" y1="0" x2="${plot.nowX.toFixed(1)}" y2="${h}"></line>
+             </svg>`
+          : `<div class="nx-empty">${cfg.today ? "Keine Stundenwerte im Attribut." : "Keine Entität gewählt."}</div>`}</div>`,
+      foot: `<div class="nx-tiles t2">
+          ${nxTile(cfg.remaining ? "Resttag" : "Erzeugt",
+            cfg.remaining
+              ? (rest === null ? "–" : fmt(rest, 1) + " kWh")
+              : (act === null ? "–" : fmt(act, 1) + " kWh"),
+            cfg.remaining || cfg.actual)}
+          ${nxTile("Morgen", tom === null ? "–" : fmt(tom, 1) + " kWh", cfg.tomorrow)}
+        </div>`,
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) card.style.setProperty("--ac", cfg.accent || "#FFC24B");
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.today);
+  }
+}
+
+register("prism-forecast-card", PrismForecastCard, {
+  name: "Prism Forecast Card",
+  description: "Quadrat. Tagesprognose als Kurve aus den Stundenwerten, mit Resttag und Vorschau auf morgen.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "remaining", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "tomorrow", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "actual", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "accent", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  today: "Prognose heute — braucht das Attribut hourly_forecast (Pflicht)",
+  remaining: "Prognose Resttag",
+  tomorrow: "Prognose morgen",
+  actual: "Tatsächliche Erzeugung heute",
+  accent: "Akzentfarbe der Kurve",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   22 — Balance Card  ·  Doppel-Quadrat
+   Die Tagesbilanz: woher der verbrauchte Strom kam, als ein
+   gestapelter Balken, dazu Autarkie und Eigenverbrauch. Beide
+   Quoten rechnet die Karte aus den Tageszählern — dafür braucht
+   es keine zusätzlichen Helfer.
+   ══════════════════════════════════════════════════════════════ */
+
+const BALANCE_CSS = NEON_SHELL + NEON_FULL + `
+.bx-stack{display:flex;height:clamp(14px,calc(var(--u) * 0.26),26px);border-radius:8px;
+  overflow:hidden;background:rgba(255,255,255,.08)}
+.bx-stack i{height:100%;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.bx-lg{display:flex;align-items:baseline;justify-content:space-between;gap:1em;
+  font-size:clamp(9.5px,calc(var(--u) * 0.144),12.5px);margin-bottom:.45em}
+.bx-lg .k{opacity:.8;font-weight:700}
+.bx-lg .v{font-family:var(--p-mono);font-weight:700;letter-spacing:-.02em;
+  font-size:clamp(13px,calc(var(--u) * 0.216),19px)}
+.bx-sl{display:flex;justify-content:space-between;gap:.6em;font-size:var(--t-label);font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;opacity:.64;margin-top:.4em}
+.bx-sl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bx-quota{display:grid;grid-template-columns:1fr 1fr;gap:var(--p-pad);align-items:center}
+.bx-q{display:flex;align-items:center;gap:.6em;min-width:0}
+.bx-q svg{width:clamp(30px,calc(var(--u) * 0.86),52px);height:clamp(30px,calc(var(--u) * 0.86),52px);flex:none}
+.bx-q .t{min-width:0}
+.bx-q .t b{display:block;font-family:var(--p-mono);font-weight:700;font-size:var(--t-value);letter-spacing:-.03em}
+.bx-q .t span{display:block;margin-top:.2em;font-size:var(--t-label);font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;opacity:.64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (prefers-reduced-motion: reduce){.bx-stack i{transition:none}}
+`;
+
+class PrismBalanceCard extends PrismCard {
+  static defaults = { title: "Tagesbilanz", icon: "mdi:scale-balance" };
+  static stub = { title: "Tagesbilanz", icon: "mdi:scale-balance" };
+  static double = true;
+  static css = BALANCE_CSS;
+
+  view(hass, cfg) {
+    const prod = num(hass, cfg.production);
+    const cons = num(hass, cfg.consumption);
+    const imp = num(hass, cfg.grid_import);
+    const exp = num(hass, cfg.grid_export);
+    const bIn = num(hass, cfg.battery_in);
+    const bOut = num(hass, cfg.battery_out);
+    const gas = cfg.gas ? num(hass, cfg.gas) : null;
+
+    /* Herkunft des verbrauchten Stroms. Solar direkt ist das, was
+       weder eingespeist noch in die Batterie gegangen ist. */
+    const z = (x) => (x === null || isNaN(x) ? 0 : x);
+    const direct = Math.max(0, z(prod) - z(exp) - z(bIn));
+    const parts = [
+      { k: "Solar", v: direct, c: cfg.solar_color || "#A3E635" },
+      { k: "Batterie", v: Math.max(0, z(bOut)), c: cfg.battery_color || "#22D3EE" },
+      { k: "Netz", v: Math.max(0, z(imp)), c: cfg.grid_color || "#A78BFA" },
+    ];
+    const sum = parts.reduce((a, p) => a + p.v, 0);
+
+    /* Autarkie: welcher Teil des Verbrauchs nicht aus dem Netz kam.
+       Eigenverbrauch: welcher Teil der Erzeugung im Haus blieb. */
+    const aut = cons && cons > 0 ? Math.max(0, Math.min(100, ((cons - z(imp)) / cons) * 100)) : null;
+    const own = prod && prod > 0 ? Math.max(0, Math.min(100, ((prod - z(exp)) / prod) * 100)) : null;
+
+    const unit = uom(hass, cfg.consumption, "kWh");
+
+    return {
+      tone: "forest", from: "#11493C", to: "#04100C", ink: "#EAFFF6",
+      fill: 0, quiet: false,
+      sig: [prod, cons, imp, exp, bIn, bOut, gas],
+      head: this.head(cfg.icon || "mdi:scale-balance", cfg.title,
+        cons === null ? "" : esc(fmt(cons, 1) + " " + unit + " verbraucht")),
+      body: `<div>
+          <div class="bx-lg"><span class="k">Woher der Strom kam</span>
+            <span class="v">${cons === null ? "–" : esc(fmt(cons, 1) + " " + unit)}</span></div>
+          <div class="bx-stack" role="img" aria-label="${esc(parts.map((p) =>
+            p.k + " " + fmt(p.v, 1) + " " + unit).join(", "))}">
+            ${sum > 0 ? parts.map((p) =>
+              `<i style="width:${((p.v / sum) * 100).toFixed(1)}%;background:${esc(p.c)}"></i>`).join("") : ""}
+          </div>
+          <div class="bx-sl">${parts.map((p) =>
+            `<span>${esc(p.k)} ${fmt(p.v, 1)}</span>`).join("")}</div>
+        </div>
+        <div class="bx-quota">
+          <div class="bx-q">
+            <svg viewBox="0 0 100 100" role="img" aria-label="Autarkie ${aut === null ? "unbekannt" : fmt0(aut) + " Prozent"}">
+              ${nxRing(aut, cfg.solar_color || "#7EE8B5", 12)}</svg>
+            <span class="t"><b>${aut === null ? "–" : fmt0(aut) + " %"}</b><span>Autarkie</span></span>
+          </div>
+          <div class="bx-q">
+            <svg viewBox="0 0 100 100" role="img" aria-label="Eigenverbrauch ${own === null ? "unbekannt" : fmt0(own) + " Prozent"}">
+              ${nxRing(own, cfg.battery_color || "#22D3EE", 12)}</svg>
+            <span class="t"><b>${own === null ? "–" : fmt0(own) + " %"}</b><span>Eigenverbrauch</span></span>
+          </div>
+        </div>`,
+      foot: `<div class="nx-tiles ${gas === null ? "t2" : "t3"}">
+          ${nxTile("Erzeugt", prod === null ? "–" : fmt(prod, 1) + " kWh", cfg.production)}
+          ${nxTile("Verbrauch", cons === null ? "–" : fmt(cons, 1) + " kWh", cfg.consumption)}
+          ${gas === null ? "" : nxTile("Gas", fmt(gas, 1) + " " + uom(hass, cfg.gas, "kWh"), cfg.gas)}
+        </div>`,
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) {
+      card.classList.add("nx-full");
+      card.style.setProperty("--ac", cfg.solar_color || "#A3E635");
+    }
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.consumption);
+  }
+}
+
+register("prism-balance-card", PrismBalanceCard, {
+  name: "Prism Balance Card",
+  description: "Doppel-Quadrat. Woher der Strom heute kam, als gestapelter Balken, dazu Autarkie und Eigenverbrauch.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "production", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "consumption", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "grid_import", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "grid_export", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "battery_in", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "battery_out", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "gas", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "solar_color", selector: { text: {} } },
+  { name: "battery_color", selector: { text: {} } },
+  { name: "grid_color", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  production: "Erzeugung heute",
+  consumption: "Hausverbrauch heute",
+  grid_import: "Netzbezug heute",
+  grid_export: "Einspeisung heute",
+  battery_in: "Batterie Ladung heute",
+  battery_out: "Batterie Entladung heute",
+  gas: "Gasverbrauch heute (wahlweise)",
+  solar_color: "Farbe für Solar",
+  battery_color: "Farbe für Batterie",
+  grid_color: "Farbe für Netz",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   23 — Strings Card  ·  Doppel-Quadrat
+   Zwei Dachflächen nebeneinander, beide Leistungen groß und
+   beide Tagesverläufe auf einer gemeinsamen Skala.
+   ══════════════════════════════════════════════════════════════ */
+
+const STRINGS_CSS = NEON_SHELL + NEON_FULL + `
+.sx-a{color:var(--ac-a,#A3E635)}
+.sx-b{color:var(--ac-b,#38BDF8)}
+`;
+
+class PrismStringsCard extends PrismCard {
+  static defaults = { title: "Dachflächen", icon: "mdi:solar-panel-large", hours: 24,
+    a_name: "String A", b_name: "String B", a_color: "#A3E635", b_color: "#38BDF8" };
+  static stub = { title: "Dachflächen", icon: "mdi:solar-panel-large", hours: 24 };
+  static double = true;
+  static css = STRINGS_CSS;
+
+  setConfig(config) {
+    super.setConfig(config);
+    this._a = null; this._b = null; this._histTs = 0; this._histKey = null;
+  }
+  onHass() { this._maybeFetch(); }
+
+  async _maybeFetch() {
+    const hass = this._hass, cfg = this._config;
+    const ids = [cfg.string_a, cfg.string_b].filter(Boolean);
+    if (!ids.length) return;
+    const key = ids.join("|") + "|" + (cfg.hours || 24);
+    const now = Date.now();
+    if (this._histKey === key && now - this._histTs < 5 * 60 * 1000) return;
+    this._histKey = key; this._histTs = now;
+    try {
+      const res = await fetchHistory(hass, ids, parseInt(cfg.hours) || 24);
+      if (cfg.string_a) this._a = res[cfg.string_a] || [];
+      if (cfg.string_b) this._b = res[cfg.string_b] || [];
+      this._sig = null;
+      this._render();
+    } catch (e) { /* Verlauf nicht verfügbar */ }
+  }
+
+  _curves(w, h) {
+    const a = this._a || [], b = this._b || [];
+    if (a.length < 2 && b.length < 2) return null;
+    const all = a.concat(b);
+    let t0 = Infinity, t1 = -Infinity, max = 0;
+    all.forEach((p) => {
+      if (p.t < t0) t0 = p.t;
+      if (p.t > t1) t1 = p.t;
+      if (p.v > max) max = p.v;
+    });
+    if (!max) max = 1;
+    const span = t1 - t0 || 1, top = 6;
+    const X = (t) => ((t - t0) / span) * w;
+    const Y = (v) => h - (v / max) * (h - top);
+    const build = (pts) => pts.length < 2 ? null
+      : pts.map((p, i) => (i ? "L" : "M") + X(p.t).toFixed(1) + " " + Y(p.v).toFixed(1)).join(" ");
+    return { a: build(a), b: build(b) };
+  }
+
+  view(hass, cfg) {
+    const pa = nxKw(hass, cfg.string_a);
+    const pb = nxKw(hass, cfg.string_b);
+    const sa = nxPower(pa), sb = nxPower(pb);
+    const ta = cfg.a_today ? num(hass, cfg.a_today) : null;
+    const tb = cfg.b_today ? num(hass, cfg.b_today) : null;
+    const tot = cfg.total ? num(hass, cfg.total) : null;
+
+    /* Welche Fläche gerade führt — das sagt mehr als eine Summe */
+    let state = "";
+    if (pa !== null && pb !== null) {
+      state = pa === pb ? "Gleichauf"
+        : (pa > pb ? (cfg.a_name || "String A") : (cfg.b_name || "String B")) + " führt";
+    }
+
+    const w = 300, h = 110;
+    const m = this._curves(w, h);
+
+    return {
+      tone: "olive", from: "#3F4F12", to: "#0A0E02", ink: "#F4FFE3",
+      fill: 0, quiet: false,
+      sig: [pa, pb, ta, tb, tot, (this._a || []).length, (this._b || []).length],
+      head: this.head(cfg.icon || "mdi:solar-panel-large", cfg.title, esc(state)),
+      body: `<div class="nx-duo">
+          <div>
+            <div class="nx-num nx-big sx-a">${esc(sa.v)}<small>${esc(sa.u)}</small></div>
+            <div class="nx-cap">${esc(cfg.a_name || "String A")}</div>
+          </div>
+          <div>
+            <div class="nx-num nx-big sx-b">${esc(sb.v)}<small>${esc(sb.u)}</small></div>
+            <div class="nx-cap">${esc(cfg.b_name || "String B")}</div>
+          </div>
+        </div>
+        <div class="nx-plot">${m
+          ? `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img"
+                aria-label="Verlauf beider Dachflächen">
+               ${[.33, .66].map((f) => `<line class="nx-grid" x1="0" y1="${(h * f).toFixed(0)}" x2="${w}" y2="${(h * f).toFixed(0)}"/>`).join("")}
+               <line class="nx-axis" x1="0" y1="${h}" x2="${w}" y2="${h}"></line>
+               ${m.a ? `<path d="${m.a}" fill="none" stroke="${esc(cfg.a_color || "#A3E635")}" stroke-width="2.3"
+                   stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>` : ""}
+               ${m.b ? `<path d="${m.b}" fill="none" stroke="${esc(cfg.b_color || "#38BDF8")}" stroke-width="2.3"
+                   stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>` : ""}
+             </svg>`
+          : `<div class="nx-empty">${(cfg.string_a || cfg.string_b) ? "Verlauf wird geladen…" : "Keine Entitäten gewählt."}</div>`}</div>`,
+      foot: `<div class="nx-tiles ${tot === null ? "t2" : "t3"}">
+          ${nxTile((cfg.a_name || "A") + " heute", ta === null ? "–" : fmt(ta, 1) + " kWh", cfg.a_today)}
+          ${nxTile((cfg.b_name || "B") + " heute", tb === null ? "–" : fmt(tb, 1) + " kWh", cfg.b_today)}
+          ${tot === null ? "" : nxTile("Gesamt", fmt0(tot) + " kWh", cfg.total)}
+        </div>`,
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) {
+      card.classList.add("nx-full");
+      card.style.setProperty("--ac", cfg.a_color || "#A3E635");
+      card.style.setProperty("--ac-a", cfg.a_color || "#A3E635");
+      card.style.setProperty("--ac-b", cfg.b_color || "#38BDF8");
+    }
+    this.shadowRoot.querySelectorAll(".nx-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.string_a);
+  }
+}
+
+register("prism-strings-card", PrismStringsCard, {
+  name: "Prism Strings Card",
+  description: "Doppel-Quadrat. Zwei Dachflächen mit beiden Leistungen groß und gemeinsamem Tagesverlauf.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "string_a", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "string_b", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "a_name", selector: { text: {} } },
+  { name: "b_name", selector: { text: {} } },
+  { name: "a_today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "b_today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "total", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "a_color", selector: { text: {} } },
+  { name: "b_color", selector: { text: {} } },
+  { name: "hours", selector: { number: { min: 1, max: 168, mode: "box", unit_of_measurement: "h" } } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  string_a: "Leistung der ersten Fläche",
+  string_b: "Leistung der zweiten Fläche",
+  a_name: "Name der ersten Fläche",
+  b_name: "Name der zweiten Fläche",
+  a_today: "Tagesertrag der ersten Fläche",
+  b_today: "Tagesertrag der zweiten Fläche",
+  total: "Gesamtertrag der Anlage",
+  a_color: "Farbe der ersten Fläche",
+  b_color: "Farbe der zweiten Fläche",
+  hours: "Zeitfenster des Verlaufs",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   24 — Consumers Card  ·  Doppel-Quadrat
+   Die größten Verbraucher im Haus, nach Leistung sortiert, mit
+   einem Balken je Zeile. Abgeschaltete Geräte rutschen nach
+   unten und werden gedämpft, statt zu verschwinden.
+   ══════════════════════════════════════════════════════════════ */
+
+const CONSUMERS_CSS = NEON_SHELL + NEON_FULL + `
+.cx-rows{display:flex;flex-direction:column;gap:calc(var(--p-gap) * .7);justify-content:center}
+.cx-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.7em;min-width:0;cursor:pointer}
+.cx-row .n{font-size:var(--t-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cx-row .w{font-family:var(--p-mono);font-weight:700;font-size:var(--t-body);
+  font-variant-numeric:tabular-nums;opacity:.86}
+.cx-row .t{grid-column:1 / -1;height:4px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}
+.cx-row .t i{display:block;height:100%;border-radius:999px;background:var(--ac);
+  transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.cx-row.off .n,.cx-row.off .w{opacity:.45}
+@media (prefers-reduced-motion: reduce){.cx-row .t i{transition:none}}
+`;
+
+class PrismConsumersCard extends PrismCard {
+  static defaults = { title: "Verbraucher", icon: "mdi:format-list-bulleted", max: 5, accent: "#38BDF8" };
+  static stub = { title: "Verbraucher", icon: "mdi:format-list-bulleted", max: 5 };
+  static double = true;
+  static css = CONSUMERS_CSS;
+
+  _collect(hass, cfg) {
+    const ids = toList(cfg.entities);
+    const rows = [];
+    ids.forEach((id) => {
+      const st = hass.states[id];
+      if (!st) return;
+      const kw = nxKw(hass, id);
+      rows.push({ id: id, name: friendly(hass, id, id), kw: kw === null ? 0 : kw, known: kw !== null });
+    });
+    rows.sort((a, b) => b.kw - a.kw);
+    return rows.slice(0, parseInt(cfg.max) || 5);
+  }
+
+  view(hass, cfg) {
+    const rows = this._collect(hass, cfg);
+    const total = cfg.total ? nxKw(hass, cfg.total) : rows.reduce((a, r) => a + r.kw, 0);
+    const max = rows.reduce((a, r) => (r.kw > a ? r.kw : a), 0) || 1;
+    const t = nxPower(total);
+
+    return {
+      tone: "sky", from: "#0C4A6E", to: "#030B14", ink: "#EAF6FF",
+      fill: 0, quiet: false,
+      sig: [rows.map((r) => r.id + ":" + r.kw.toFixed(3)).join("|"), total],
+      head: this.head(cfg.icon || "mdi:format-list-bulleted", cfg.title,
+        total === null ? "" : esc(t.v + " " + t.u + " gesamt")),
+      body: rows.length
+        ? `<div class="cx-rows">${rows.map((r) => {
+            const p = nxPower(r.kw);
+            return `<div class="cx-row${r.kw <= 0.001 ? " off" : ""}" data-mi="${esc(r.id)}">
+              <span class="n">${esc(r.name)}</span>
+              <span class="w">${esc(r.known ? p.v + " " + p.u : "–")}</span>
+              <span class="t"><i style="width:${((r.kw / max) * 100).toFixed(1)}%"></i></span>
+            </div>`;
+          }).join("")}</div>`
+        : `<div class="nx-plot"><div class="nx-empty">Keine Entitäten gewählt.</div></div>`,
+      foot: (cfg.base_load || cfg.peak_today)
+        ? `<div class="nx-tiles t2">
+             ${cfg.base_load ? nxTile("Grundlast", (function () {
+               const p = nxPower(nxKw(hass, cfg.base_load)); return p.v + " " + p.u;
+             })(), cfg.base_load) : ""}
+             ${cfg.peak_today ? nxTile("Spitze heute", (function () {
+               const p = nxPower(nxKw(hass, cfg.peak_today)); return p.v + " " + p.u;
+             })(), cfg.peak_today) : ""}
+           </div>`
+        : "",
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) {
+      card.classList.add("nx-full");
+      card.style.setProperty("--ac", cfg.accent || "#38BDF8");
+    }
+    this.shadowRoot.querySelectorAll("[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.total);
+  }
+}
+
+register("prism-consumers-card", PrismConsumersCard, {
+  name: "Prism Consumers Card",
+  description: "Doppel-Quadrat. Die größten Verbraucher nach Leistung sortiert, mit Balken je Zeile.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "entities", selector: { entity: { multiple: true, filter: [{ domain: "sensor" }] } } },
+  { name: "total", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "base_load", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "peak_today", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "max", selector: { number: { min: 1, max: 12, mode: "box" } } },
+  { name: "accent", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  entities: "Leistungssensoren der Verbraucher",
+  total: "Gesamtleistung für die Statuszeile",
+  base_load: "Grundlast",
+  peak_today: "Tagesspitze",
+  max: "Höchstzahl der Zeilen",
+  accent: "Farbe der Balken",
+});
+
+
 console.info(
-  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 10 Quadrate + 6 Doppel + 2 Mini ",
+  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 13 Quadrate + 9 Doppel + 2 Mini ",
   "background:#0B0A14;color:#FFC24B;font-weight:700",
   "background:#FFC24B;color:#0B0A14"
 );

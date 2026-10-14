@@ -16,7 +16,7 @@
 cd prism-cards-repo
 git init
 git add .
-git commit -m "Prism Cards v46"
+git commit -m "Prism Cards v47"
 git branch -M main
 git remote add origin https://github.com/YOUR-NAME/prism-cards.git
 git push -u origin main
@@ -27,7 +27,7 @@ git push -u origin main
 HACS works with releases. After the first upload:
 
 1. In the repository: **Releases → Create a new release**.
-2. Tag `v46`, title `v46`, a short summary of what's in it.
+2. Tag `v47`, title `v47`, a short summary of what's in it.
 3. **Publish release**.
 
 For every new version: replace `dist/prism-cards.js`, bump the version in
