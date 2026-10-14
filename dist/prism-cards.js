@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v51";
+const PRISM_VERSION = "v52";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -6710,8 +6710,564 @@ register("prism-days-card", PrismDaysCard, {
 });
 
 
+/* ══════════════════════════════════════════════════════════════
+   Saugerseite — gemeinsame Bausteine
+   Diese drei Karten bleiben auf der hellen Verlaufsfläche der
+   Sammlung, damit sie zur bestehenden Staubsaugerkarte passen.
+   ══════════════════════════════════════════════════════════════ */
+
+const SAUG_SHELL = `
+/* Kacheln der Fußzeile */
+.sg-tiles{display:grid;gap:4px}
+.sg-tiles.t2{grid-template-columns:1fr 1fr}
+.sg-tiles.t3{grid-template-columns:repeat(3,1fr)}
+.sg-tile{background:rgba(11,10,20,.14);border:1px solid rgba(11,10,20,.10);border-radius:10px;
+  padding:calc(var(--p-pad) * .5) calc(var(--p-pad) * .45);min-width:0}
+.card.quiet .sg-tile{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.14)}
+.sg-tile[data-mi]{cursor:pointer}
+.sg-tile .k{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-tile .v{display:block;margin-top:.3em;font-family:var(--p-mono);font-weight:700;
+  font-size:var(--t-value);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sg-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.192),13px);opacity:.6;text-align:center}
+`;
+
+/* Doppelkarten dieser Reihe nutzen die volle Breite */
+const SAUG_FULL = `
+.card.dbl.sg-full{grid-template-columns:minmax(0,1fr);grid-template-areas:"h" "b" "f";
+  grid-template-rows:auto minmax(0,1fr) auto}
+.card.sg-full > .zd{display:none}
+`;
+
+/* Wortmarken für Zustände, die als Schalterbeschriftung auftauchen */
+const SAUG_WORDS = {
+  off: "Aus", on: "An", low: "Niedrig", medium: "Mittel", high: "Hoch", max: "Max",
+  quiet: "Leise", silent: "Leise", standard: "Standard", strong: "Stark", turbo: "Turbo",
+  balanced: "Normal", max_plus: "Max+", smart_mode: "Smart", custom: "Eigen",
+  vacuum: "Saugen", vac_and_mop: "Saug+Wisch", mop: "Wischen",
+  slight: "Leicht", moderate: "Mäßig", extreme: "Extrem",
+  deep_plus: "Intensiv", fast: "Schnell", smart: "Smart", light: "Leicht",
+  sweeping: "Saugen", "sweeping and mopping": "Saug+Wisch", mopping: "Wischen",
+  unknown: "—",
+};
+function saugWord(v) {
+  if (v === null || v === undefined) return "–";
+  const k = String(v).toLowerCase();
+  if (SAUG_WORDS[k]) return SAUG_WORDS[k];
+  return String(v).charAt(0).toUpperCase() + String(v).slice(1);
+}
+function saugTile(k, v, mi) {
+  return `<div class="sg-tile"${mi ? ` data-mi="${esc(mi)}"` : ""}>
+    <span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   26 — Rooms Card  ·  Doppel-Quadrat
+   Räume antippen, Auswahl sammeln, starten. Die beiden Integrationen
+   steuern Räume unterschiedlich: Dreame über einen eigenen Dienst mit
+   Segmentnummern, Roborock über das Rohkommando app_segment_clean.
+   Darum entscheidet "backend", welcher Weg genommen wird.
+   ══════════════════════════════════════════════════════════════ */
+
+const ROOMS_CSS = SAUG_SHELL + SAUG_FULL + `
+.rm-grid{display:grid;gap:5px;align-content:center;min-height:0}
+.rm{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25em;
+  min-width:0;padding:calc(var(--p-pad) * .45) calc(var(--p-pad) * .3);border-radius:12px;
+  background:rgba(11,10,20,.13);border:1px solid rgba(11,10,20,.10);cursor:pointer;
+  font-family:inherit;color:inherit;text-align:center;overflow:hidden;
+  transition:background .16s,border-color .16s,color .16s}
+.card.quiet .rm{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.14)}
+.rm ha-icon{--mdc-icon-size:clamp(14px,calc(var(--u) * 0.38),26px);flex:none}
+.rm b{font-size:var(--t-body);font-weight:700;letter-spacing:-.01em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rm i{font-family:var(--p-mono);font-style:normal;font-size:var(--t-label);font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;opacity:.6;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* Ausgewählt wird gefüllt, nicht nur umrandet — auf einer Verlaufsfläche
+   trägt allein der Helligkeitsunterschied. */
+.rm.on{background:#0B0A14;border-color:#0B0A14;color:#F4F7FA}
+.rm.on i{opacity:.74}
+/* Der Raum, in dem der Roboter gerade steckt */
+.rm.here{box-shadow:inset 0 0 0 2px rgba(11,10,20,.45)}
+.rm.on.here{box-shadow:inset 0 0 0 2px rgba(244,247,250,.55)}
+
+.rm-acts{display:flex;gap:4px;margin-top:.3em}
+.rm-act{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:.35em;
+  font-family:var(--p-mono);font-weight:700;font-size:var(--t-label);letter-spacing:.08em;
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;
+  padding:.62em .4em;border-radius:999px;cursor:pointer;color:inherit;
+  background:rgba(11,10,20,.16);border:1px solid rgba(11,10,20,.12);transition:background .16s}
+.card.quiet .rm-act{background:rgba(127,127,127,.18);border-color:rgba(127,127,127,.16)}
+.rm-act ha-icon{--mdc-icon-size:1.25em;flex:none}
+.rm-act.go{background:#0B0A14;border-color:#0B0A14;color:#F4F7FA;flex:1.5 1 0}
+.rm-act[disabled]{opacity:.42;cursor:default}
+`;
+
+class PrismRoomsCard extends PrismCard {
+  static defaults = { title: "Räume", icon: "mdi:floor-plan", backend: "dreame",
+    repeats: 1, columns: 3, params_style: "object", command: "app_segment_clean" };
+  static stub = { title: "Räume", icon: "mdi:floor-plan", backend: "dreame" };
+  static double = true;
+  static css = ROOMS_CSS;
+
+  setConfig(config) {
+    super.setConfig(config);
+    this._sel = [];
+  }
+
+  /* Die Räume. Dreame führt sie als Attribut der Staubsaugerentität —
+     dann braucht die Karte keine Pflegeliste. Roborock legt sie nicht
+     in den Zustand, dort müssen sie konfiguriert werden. */
+  _rooms(hass, cfg) {
+    const given = Array.isArray(cfg.rooms) ? cfg.rooms : null;
+    if (given && given.length) {
+      return given.map((r) => ({
+        id: Number(r.id),
+        name: r.name || ("Raum " + r.id),
+        icon: r.icon || cfg.room_icon || "mdi:floor-plan",
+        info: r.info || "",
+        info_entity: r.info_entity || "",
+      })).filter((r) => !isNaN(r.id));
+    }
+    const st = cfg.entity ? hass.states[cfg.entity] : null;
+    const all = st && st.attributes && st.attributes.rooms;
+    if (!all) return [];
+    const mapName = st.attributes.selected_map;
+    const list = (mapName && all[mapName]) || all[Object.keys(all)[0]] || [];
+    return list.map((r) => ({
+      id: Number(r.id),
+      name: r.name || ("Raum " + r.id),
+      icon: cfg.room_icon || r.icon || "mdi:floor-plan",
+      info: "", info_entity: "",
+    })).filter((r) => !isNaN(r.id));
+  }
+
+  view(hass, cfg) {
+    const rooms = this._rooms(hass, cfg);
+    /* Auswahl auf vorhandene Räume begrenzen — eine Karte, deren
+       Raumliste wechselt, darf keine Geister mitschleppen. */
+    const ids = rooms.map((r) => r.id);
+    this._sel = this._sel.filter((i) => ids.indexOf(i) >= 0);
+
+    const vac = cfg.entity ? hass.states[cfg.entity] : null;
+    const vstate = vac ? vac.state : null;
+    const busy = vstate === "cleaning" || vstate === "returning";
+    const here = cfg.current_room ? stateOf(hass, cfg.current_room) : null;
+
+    const picked = rooms.filter((r) => this._sel.indexOf(r.id) >= 0);
+    const status = picked.length
+      ? picked.length + (picked.length === 1 ? " gewählt · " : " gewählt · ") +
+        picked.map((r) => r.name).join(", ")
+      : busy ? (here ? "Reinigt " + here : "Reinigt") : "Keine Auswahl";
+
+    const cols = Math.max(2, Math.min(4, parseInt(cfg.columns) || 3));
+
+    return {
+      tone: cfg.tone || "violet",
+      fill: 0, quiet: false,
+      sig: [this._sel.join(","), rooms.map((r) => r.id + r.name).join("|"), vstate, here,
+        rooms.map((r) => (r.info_entity ? stateOf(hass, r.info_entity) : "")).join("|")],
+      head: this.head(cfg.icon || "mdi:floor-plan", cfg.title, esc(status)),
+      body: rooms.length
+        ? `<div class="rm-grid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${
+            rooms.map((r) => {
+              const on = this._sel.indexOf(r.id) >= 0;
+              const sub = r.info_entity ? saugWord(stateOf(hass, r.info_entity)) : r.info;
+              return `<button type="button" class="rm${on ? " on" : ""}${
+                here && here === r.name ? " here" : ""}" data-room="${r.id}"
+                aria-pressed="${on ? "true" : "false"}">
+                <ha-icon icon="${esc(r.icon)}"></ha-icon>
+                <b>${esc(r.name)}</b>${sub ? `<i>${esc(sub)}</i>` : ""}
+              </button>`;
+            }).join("")}</div>`
+        : `<div class="sg-empty">${cfg.entity
+            ? "Keine Räume gefunden — bei Roborock müssen sie konfiguriert werden."
+            : "Keine Staubsaugerentität gewählt."}</div>`,
+      foot: `<div class="rm-acts">
+          <button type="button" class="rm-act go" id="rm-go"${picked.length ? "" : " disabled"}>
+            <ha-icon icon="mdi:play"></ha-icon>${picked.length
+              ? esc(picked.length + (picked.length === 1 ? " Raum starten" : " Räume starten"))
+              : "Räume wählen"}</button>
+          <button type="button" class="rm-act" id="rm-all">
+            <ha-icon icon="mdi:select-all"></ha-icon>${this._sel.length === rooms.length && rooms.length ? "Keiner" : "Alles"}</button>
+          <button type="button" class="rm-act" id="rm-stop">
+            <ha-icon icon="mdi:stop"></ha-icon>Stopp</button>
+          <button type="button" class="rm-act" id="rm-home">
+            <ha-icon icon="mdi:home-import-outline"></ha-icon>Station</button>
+        </div>`,
+    };
+  }
+
+  /* Der Start. Dreame nimmt Segmentnummern direkt, Roborock erwartet
+     je nach Firmware entweder eine nackte Liste oder ein Objekt mit
+     segments und repeat — darum params_style. */
+  _start() {
+    const cfg = this._config, ids = this._sel.slice();
+    if (!ids.length || !cfg.entity) return;
+    const rep = Math.max(1, Math.min(3, parseInt(cfg.repeats) || 1));
+    if (cfg.backend === "roborock") {
+      const params = cfg.params_style === "list" ? ids : [{ segments: ids, repeat: rep }];
+      this._hass.callService("vacuum", "send_command", {
+        entity_id: cfg.entity,
+        command: cfg.command || "app_segment_clean",
+        params: params,
+      });
+    } else {
+      const data = { entity_id: cfg.entity, segments: ids };
+      if (rep > 1) data.repeats = rep;
+      this._hass.callService("dreame_vacuum", "vacuum_clean_segment", data);
+    }
+    this._sel = [];
+    this._sig = null;
+    this._render();
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) card.classList.add("sg-full");
+
+    this.shadowRoot.querySelectorAll(".rm[data-room]").forEach((el) => {
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const id = parseInt(el.getAttribute("data-room"));
+        const i = this._sel.indexOf(id);
+        if (i >= 0) this._sel.splice(i, 1); else this._sel.push(id);
+        this._sig = null;
+        this._render();
+      });
+    });
+    this._on("rm-go", () => this._start());
+    this._on("rm-all", () => {
+      const rooms = this._rooms(this._hass, cfg);
+      this._sel = this._sel.length === rooms.length ? [] : rooms.map((r) => r.id);
+      this._sig = null;
+      this._render();
+    });
+    this._on("rm-stop", () => {
+      if (cfg.entity) this._hass.callService("vacuum", "stop", { entity_id: cfg.entity });
+    });
+    this._on("rm-home", () => {
+      if (cfg.entity) this._hass.callService("vacuum", "return_to_base", { entity_id: cfg.entity });
+    });
+    this._wireHead(cfg.entity);
+  }
+}
+
+register("prism-rooms-card", PrismRoomsCard, {
+  name: "Prism Rooms Card",
+  description: "Doppel-Quadrat. Räume antippen, Auswahl sammeln und starten — für Dreame und Roborock.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "entity", selector: { entity: { filter: [{ domain: "vacuum" }] } } },
+  { name: "backend", selector: { select: { mode: "dropdown", options: [
+    { value: "dreame", label: "Dreame — eigener Dienst, Räume kommen aus dem Zustand" },
+    { value: "roborock", label: "Roborock — app_segment_clean, Räume konfigurieren" },
+  ] } } },
+  { name: "current_room", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "repeats", selector: { number: { min: 1, max: 3, mode: "box" } } },
+  { name: "columns", selector: { number: { min: 2, max: 4, mode: "box" } } },
+  { name: "room_icon", selector: { icon: {} } },
+  { name: "rooms", selector: { object: {} } },
+  { name: "params_style", selector: { select: { mode: "dropdown", options: [
+    { value: "object", label: "Objekt — [{segments: […], repeat: n}]" },
+    { value: "list", label: "Liste — [id, id] (ältere Firmware)" },
+  ] } } },
+  { name: "command", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  entity: "Staubsauger (Pflicht)",
+  backend: "Wie Raumreinigung angesteuert wird",
+  current_room: "Sensor mit dem aktuellen Raum — hebt die Kachel hervor",
+  repeats: "Durchgänge je Raum",
+  columns: "Kacheln je Reihe",
+  room_icon: "Einheitliches Icon für alle Räume",
+  rooms: "Räume als Liste, z. B. [{id: 1, name: Küche, icon: mdi:silverware}]",
+  params_style: "Nur Roborock: Form der Parameter",
+  command: "Nur Roborock: Rohkommando",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   27 — Select Card  ·  Quadrat
+   Bis zu vier Einstellungen als Segmentreihen. Nimmt select- und
+   input_select-Entitäten, Schalter als An/Aus und die Saugkraft
+   einer Staubsaugerentität über deren fan_speed_list.
+   ══════════════════════════════════════════════════════════════ */
+
+const SELECT_CSS = SAUG_SHELL + `
+.sx-rows{display:flex;flex-direction:column;gap:calc(var(--p-gap) * .8);justify-content:center;min-height:0}
+.sx-row{min-width:0}
+.sx-row > span{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;opacity:.62;margin-bottom:.3em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.sx-seg{display:flex;gap:2px;background:rgba(11,10,20,.13);border:1px solid rgba(11,10,20,.10);
+  border-radius:999px;padding:2px}
+.card.quiet .sx-seg{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.14)}
+.sx-seg button{flex:1 1 0;min-width:0;text-align:center;border:0;background:none;cursor:pointer;
+  color:inherit;font-family:var(--p-mono);font-weight:700;font-size:var(--t-label);
+  letter-spacing:.04em;padding:.5em .2em;border-radius:999px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;opacity:.72;transition:background .16s,opacity .16s}
+.sx-seg button.on{background:#0B0A14;color:#F4F7FA;opacity:1}
+`;
+
+class PrismSelectCard extends PrismCard {
+  static defaults = { title: "Einstellungen", icon: "mdi:tune-variant", tone: "ocean" };
+  static stub = { title: "Einstellungen", icon: "mdi:tune-variant" };
+  static css = SELECT_CSS;
+
+  /* Eine Reihe: Entität, Beschriftung, Optionen und was ein Klick auslöst */
+  _row(hass, r) {
+    const id = typeof r === "string" ? r : r.entity;
+    if (!id) return null;
+    const st = hass.states[id];
+    if (!st) return null;
+    const dom = id.split(".")[0];
+    const name = (typeof r === "object" && r.name) || friendly(hass, id, id);
+    const skip = (typeof r === "object" && Array.isArray(r.hide)) ? r.hide.map(String) : [];
+
+    if (dom === "switch" || dom === "input_boolean") {
+      return { id: id, name: name, value: st.state,
+        options: [{ v: "off", l: "Aus" }, { v: "on", l: "An" }],
+        act: (v) => hass.callService(dom, v === "on" ? "turn_on" : "turn_off", { entity_id: id }) };
+    }
+    if (dom === "vacuum") {
+      const list = (st.attributes.fan_speed_list || []).filter((o) => skip.indexOf(String(o)) < 0);
+      return { id: id, name: (typeof r === "object" && r.name) || "Saugkraft",
+        value: st.attributes.fan_speed,
+        options: list.map((o) => ({ v: o, l: saugWord(o) })),
+        act: (v) => hass.callService("vacuum", "set_fan_speed", { entity_id: id, fan_speed: v }) };
+    }
+    const list = (st.attributes.options || []).filter((o) => skip.indexOf(String(o)) < 0);
+    if (!list.length) return null;
+    return { id: id, name: name, value: st.state,
+      options: list.map((o) => ({ v: o, l: saugWord(o) })),
+      act: (v) => hass.callService(dom === "input_select" ? "input_select" : "select",
+        "select_option", { entity_id: id, option: v }) };
+  }
+
+  view(hass, cfg) {
+    const raw = Array.isArray(cfg.rows) ? cfg.rows : toList(cfg.entities);
+    const rows = raw.map((r) => this._row(hass, r)).filter(Boolean).slice(0, 4);
+    this._rows = rows;
+
+    const lead = rows.length ? rows[0] : null;
+    const state = cfg.state_text || (lead ? saugWord(lead.value) : "");
+
+    return {
+      tone: cfg.tone || "ocean",
+      fill: 0, quiet: false,
+      sig: [rows.map((r) => r.id + ":" + r.value + ":" + r.options.length).join("|")],
+      head: this.head(cfg.icon || "mdi:tune-variant", cfg.title, esc(state)),
+      body: rows.length
+        ? `<div class="sx-rows">${rows.map((r, i) =>
+            `<div class="sx-row">
+               <span>${esc(r.name)}</span>
+               <div class="sx-seg" data-row="${i}">${r.options.map((o) =>
+                 `<button type="button" data-val="${esc(o.v)}"
+                   class="${String(r.value) === String(o.v) ? "on" : ""}">${esc(o.l)}</button>`).join("")}</div>
+             </div>`).join("")}</div>`
+        : `<div class="sg-empty">Keine Entitäten mit Auswahl gewählt.</div>`,
+      foot: (cfg.left_entity || cfg.right_entity)
+        ? `<div class="sg-tiles t2">
+             ${cfg.left_entity ? saugTile(cfg.left_name || friendly(hass, cfg.left_entity, "Links"),
+               saugWord(stateOf(hass, cfg.left_entity)), cfg.left_entity) : ""}
+             ${cfg.right_entity ? saugTile(cfg.right_name || friendly(hass, cfg.right_entity, "Rechts"),
+               saugWord(stateOf(hass, cfg.right_entity)), cfg.right_entity) : ""}
+           </div>`
+        : "",
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const rows = this._rows || [];
+    this.shadowRoot.querySelectorAll(".sx-seg").forEach((seg) => {
+      const r = rows[parseInt(seg.getAttribute("data-row"))];
+      if (!r) return;
+      seg.querySelectorAll("button").forEach((b) => {
+        b.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          r.act(b.getAttribute("data-val"));
+        });
+      });
+    });
+    this.shadowRoot.querySelectorAll(".sg-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(rows.length ? rows[0].id : undefined);
+  }
+}
+
+register("prism-select-card", PrismSelectCard, {
+  name: "Prism Select Card",
+  description: "Quadrat. Bis zu vier Einstellungen als Segmentreihen — select, Schalter oder Saugkraft.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "entities", selector: { entity: { multiple: true } } },
+  { name: "rows", selector: { object: {} } },
+  { name: "state_text", selector: { text: {} } },
+  { name: "left_entity", selector: { entity: {} } },
+  { name: "left_name", selector: { text: {} } },
+  { name: "right_entity", selector: { entity: {} } },
+  { name: "right_name", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  entities: "Entitäten, je eine Reihe",
+  rows: "Reihen mit eigener Beschriftung, z. B. [{entity: select.x, name: Modus}]",
+  state_text: "Fester Text für die Statuszeile",
+  left_entity: "Linke Kachel",
+  left_name: "Beschriftung der linken Kachel",
+  right_entity: "Rechte Kachel",
+  right_name: "Beschriftung der rechten Kachel",
+});
+
+/* ══════════════════════════════════════════════════════════════
+   28 — Map Card  ·  Doppel-Quadrat
+   Das Kartenbild des Roboters, darunter drei Kennzahlen. Nimmt
+   camera- wie image-Entitäten; das Bild wird regelmäßig neu geholt,
+   weil beide ihr entity_picture mit wechselndem Zeitstempel führen.
+   ══════════════════════════════════════════════════════════════ */
+
+const MAP_CSS = SAUG_SHELL + SAUG_FULL + `
+.mp-box{position:relative;height:100%;min-height:0;border-radius:14px;overflow:hidden;
+  background:#101826;border:1px solid rgba(11,10,20,.14)}
+.mp-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.mp-ov{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;
+  justify-content:space-between;gap:.6em;padding:.5em .7em;color:#EAF1F5;
+  background:linear-gradient(to top,rgba(5,8,14,.86),rgba(5,8,14,0))}
+.mp-ov b{font-family:var(--p-mono);font-weight:700;font-size:var(--t-label);letter-spacing:.08em;
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-none{position:absolute;inset:0;display:grid;place-items:center;color:#9FB0C4;
+  font-size:clamp(10px,calc(var(--u) * 0.192),13px);text-align:center;padding:1em}
+`;
+
+class PrismMapCard extends PrismCard {
+  static defaults = { title: "Karte", icon: "mdi:map-outline", tone: "slate", refresh_interval: 20 };
+  static stub = { title: "Karte", icon: "mdi:map-outline" };
+  static double = true;
+  static css = MAP_CSS;
+
+  setConfig(config) {
+    super.setConfig(config);
+    this._stamp = Date.now();
+  }
+  onHass() {
+    const s = Math.max(5, parseInt(this._config.refresh_interval) || 20);
+    if (!this._tick) {
+      this._tick = setInterval(() => {
+        this._stamp = Date.now();
+        this._sig = null;
+        this._render();
+      }, s * 1000);
+    }
+  }
+
+  /* Das Bild. Beide Domänen führen entity_picture; der Zeitstempel
+     daran wechselt nicht immer, darum hängt die Karte einen eigenen an. */
+  _src(hass, cfg) {
+    const id = cfg.image_entity;
+    const st = id ? hass.states[id] : null;
+    if (!st) return null;
+    const p = st.attributes && st.attributes.entity_picture;
+    if (!p) return null;
+    return p + (p.indexOf("?") >= 0 ? "&" : "?") + "pz=" + this._stamp;
+  }
+
+  view(hass, cfg) {
+    const src = this._src(hass, cfg);
+    const room = cfg.current_room ? stateOf(hass, cfg.current_room) : null;
+    const map = cfg.map_entity ? stateOf(hass, cfg.map_entity) : null;
+    const vac = cfg.entity ? hass.states[cfg.entity] : null;
+
+    const parts = [];
+    if (map) parts.push(map);
+    if (room) parts.push(room);
+    const status = parts.length ? parts.join(" · ") : (vac ? saugWord(vac.state) : "");
+
+    const tiles = [
+      [cfg.t1_name || "Reinigungen", cfg.t1_entity],
+      [cfg.t2_name || "Gesamt", cfg.t2_entity],
+      [cfg.t3_name || "Laufzeit", cfg.t3_entity],
+    ].filter((t) => t[1]);
+
+    return {
+      tone: cfg.tone || "slate",
+      fill: 0, quiet: false,
+      sig: [src, status, tiles.map((t) => stateOf(hass, t[1])).join("|")],
+      head: this.head(cfg.icon || "mdi:map-outline", cfg.title, esc(status)),
+      body: `<div class="mp-box">
+          ${src
+            ? `<img src="${esc(src)}" alt="Karte von ${esc(cfg.title || "Staubsauger")}">`
+            : `<div class="mp-none">${cfg.image_entity
+                ? "Kein Kartenbild — die Entität liefert kein entity_picture."
+                : "Keine Kartenentität gewählt."}</div>`}
+          ${src && (room || cfg.overlay_text)
+            ? `<span class="mp-ov"><b>${esc(cfg.overlay_text || ("Aktuell " + room))}</b>${
+                vac ? `<b>${esc(saugWord(vac.state))}</b>` : ""}</span>`
+            : ""}
+        </div>`,
+      foot: tiles.length
+        ? `<div class="sg-tiles ${tiles.length === 3 ? "t3" : "t2"}">${tiles.map(([n, id]) => {
+            const v = num(hass, id);
+            return saugTile(n, v === null ? stateOf(hass, id) : fmt0(v) + (uom(hass, id, "") ? " " + uom(hass, id, "") : ""), id);
+          }).join("")}</div>`
+        : "",
+    };
+  }
+
+  wire() {
+    const cfg = this._config;
+    const card = this.shadowRoot.querySelector(".card");
+    if (card) card.classList.add("sg-full");
+    this.shadowRoot.querySelectorAll(".sg-tile[data-mi]").forEach((el) => {
+      el.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(el.getAttribute("data-mi")); });
+    });
+    this._wireHead(cfg.entity || cfg.image_entity);
+  }
+}
+
+register("prism-map-card", PrismMapCard, {
+  name: "Prism Map Card",
+  description: "Doppel-Quadrat. Kartenbild eines Saugroboters mit Zustandszeile und drei Kennzahlen.",
+}, [
+  { name: "title", selector: { text: {} } },
+  { name: "icon", selector: { icon: {} } },
+  { name: "image_entity", selector: { entity: { filter: [{ domain: "camera" }, { domain: "image" }] } } },
+  { name: "entity", selector: { entity: { filter: [{ domain: "vacuum" }] } } },
+  { name: "current_room", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "map_entity", selector: { entity: { filter: [{ domain: "select" }] } } },
+  { name: "overlay_text", selector: { text: {} } },
+  { name: "refresh_interval", selector: { number: { min: 5, max: 300, mode: "box", unit_of_measurement: "s" } } },
+  { name: "t1_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "t1_name", selector: { text: {} } },
+  { name: "t2_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "t2_name", selector: { text: {} } },
+  { name: "t3_entity", selector: { entity: { filter: [{ domain: "sensor" }] } } },
+  { name: "t3_name", selector: { text: {} } },
+], {
+  title: "Titel",
+  icon: "Icon im Kopf",
+  image_entity: "Kamera oder Bild mit der Karte (Pflicht)",
+  entity: "Staubsauger für die Zustandszeile",
+  current_room: "Sensor mit dem aktuellen Raum",
+  map_entity: "Auswahl der gespeicherten Karte",
+  overlay_text: "Fester Text über dem Bild",
+  refresh_interval: "Wie oft ein neues Kartenbild geholt wird",
+  t1_entity: "Erste Kennzahl",
+  t1_name: "Beschriftung der ersten Kennzahl",
+  t2_entity: "Zweite Kennzahl",
+  t2_name: "Beschriftung der zweiten Kennzahl",
+  t3_entity: "Dritte Kennzahl",
+  t3_name: "Beschriftung der dritten Kennzahl",
+});
+
+
 console.info(
-  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 14 Quadrate + 9 Doppel + 2 Mini ",
+  "%c PRISM-CARDS %c " + PRISM_VERSION + " · 15 Quadrate + 11 Doppel + 2 Mini ",
   "background:#0B0A14;color:#FFC24B;font-weight:700",
   "background:#FFC24B;color:#0B0A14"
 );
