@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v50";
+const PRISM_VERSION = "v51";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -370,9 +370,9 @@ const BASE_CSS = `
   /* Schriftskala: neue Karten verwenden diese Marken statt eigener Werte */
   --t-title: clamp(14px,  calc(var(--u) * 0.336), 22px);
   --t-state: clamp(9px,   calc(var(--u) * 0.192), 12.5px);
-  --t-hero:  clamp(24px,  calc(var(--u) * 1.02),  54px);
-  --t-big:   clamp(18px,  calc(var(--u) * 0.66),  34px);
-  --t-value: clamp(11px,  calc(var(--u) * 0.28),  22px);
+  --t-hero:  clamp(24px,calc(var(--u) * 1.173),62.1px);
+  --t-big:   clamp(18px,calc(var(--u) * 0.759),39.1px);
+  --t-value: clamp(11px,calc(var(--u) * 0.4),25.3px);
   --t-body:  clamp(9.5px, calc(var(--u) * 0.21),  14px);
   --t-label: clamp(7.5px, calc(var(--u) * 0.13),  11.5px);
   --t-micro: clamp(7px,   calc(var(--u) * 0.115), 10.5px);
@@ -435,7 +435,7 @@ const BASE_CSS = `
   font-size:clamp(9.5px,calc(var(--u) * 0.144),12.5px); margin-bottom:.45em;
 }
 .soc .lg .k{opacity:.75; font-weight:600}
-.soc .lg .v{font-family:var(--p-mono); font-weight:700; font-size:clamp(13px,calc(var(--u) * 0.216),19px); letter-spacing:-.02em}
+.soc .lg .v{font-family:var(--p-mono); font-weight:700; font-size:clamp(13px,calc(var(--u) * 0.4),21.8px); letter-spacing:-.02em}
 .soc .tr{
   position:relative; height:clamp(8px,calc(var(--u) * 0.108),13px); border-radius:999px;
   background:rgba(11,10,20,.20); overflow:hidden;
@@ -501,12 +501,12 @@ const BASE_CSS = `
 .val{
   font-family:var(--p-mono); font-weight:700; font-variant-numeric:tabular-nums;
   letter-spacing:-.035em; line-height:.92;
-  font-size:clamp(24px,calc(var(--u) * 1.02),52px);
+  font-size:clamp(24px,calc(var(--u) * 1.173),59.8px);
   display:flex; align-items:baseline; gap:.14em;
 }
 .val small{font-size:.38em; font-weight:500; opacity:.72; letter-spacing:0}
-.val.mid{font-size:clamp(18px,calc(var(--u) * 0.66),34px)}
-.val.txt{font-family:var(--p-display); font-size:clamp(15px,calc(var(--u) * 0.48),26px); letter-spacing:-.02em}
+.val.mid{font-size:clamp(18px,calc(var(--u) * 0.759),39.1px)}
+.val.txt{font-family:var(--p-display); font-size:clamp(15px,calc(var(--u) * 0.552),29.9px); letter-spacing:-.02em}
 .sub{font-size:clamp(10px,calc(var(--u) * 0.216),13.5px); opacity:.78; line-height:1.35; margin-top:.4em}
 .sub b{font-weight:700; opacity:1; font-family:var(--p-mono)}
 
@@ -583,14 +583,14 @@ const BASE_CSS = `
 .mini .vl{
   font-family:var(--p-mono); font-weight:700; font-variant-numeric:tabular-nums;
   letter-spacing:-.03em; line-height:1;
-  font-size:clamp(17px,calc(var(--u) * 1.02),32px);
+  font-size:clamp(17px,calc(var(--u) * 1.173),36.8px);
   display:flex; align-items:baseline; gap:.14em; min-width:0;
 }
 .mini .vl span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .mini .vl small{font-size:.44em; font-weight:500; opacity:.72}
-.mini .vl.txt{font-family:var(--p-display); font-size:clamp(13px,calc(var(--u) * 0.72),22px); letter-spacing:-.02em}
+.mini .vl.txt{font-family:var(--p-display); font-size:clamp(13px,calc(var(--u) * 0.828),25.3px); letter-spacing:-.02em}
 .mini .sc{font-size:clamp(9px,calc(var(--u) * 0.39),12px); opacity:.72; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.mini .bg{font-family:var(--p-display); font-weight:800; letter-spacing:-.02em; line-height:1; font-size:clamp(14px,calc(var(--u) * 0.78),22px)}
+.mini .bg{font-family:var(--p-display); font-weight:800; letter-spacing:-.02em; line-height:1; font-size:clamp(14px,calc(var(--u) * 0.897),25.3px)}
 .mini .hd{display:flex; align-items:center; gap:.45em; min-width:0}
 .mini .hd .dt{width:clamp(5px,calc(var(--u) * 0.18),7px); aspect-ratio:1; border-radius:50%; background:rgba(11,10,20,.6); flex:none}
 .card.quiet .mini .hd .dt{background:var(--secondary-text-color)}
@@ -636,7 +636,7 @@ const BASE_CSS = `
 .rgc{position:relative; text-align:center; line-height:1; padding:0 6px; min-width:0}
 .rgc .t{
   font-family:var(--p-mono); font-weight:700; font-variant-numeric:tabular-nums;
-  letter-spacing:-.04em; font-size:clamp(15px,calc(var(--u) * 1.02),30px);
+  letter-spacing:-.04em; font-size:clamp(15px,calc(var(--u) * 1.173),34.5px);
 }
 .rgc .t small{font-size:.42em; font-weight:500; opacity:.72; margin-left:.12em}
 .rgc .p{font-family:var(--p-mono); font-size:clamp(8px,calc(var(--u) * 0.336),11px); opacity:.62; margin-top:.35em}
@@ -1666,14 +1666,14 @@ const WEATHER_CSS = `
 .w-fc{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;gap:clamp(3px,calc(var(--u) * 0.12),10px);height:100%}
 .w-fd{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:clamp(3px,calc(var(--u) * 0.108),8px);min-width:0;height:100%}
-.w-dy{font-family:var(--p-mono);font-size:clamp(9.5px,calc(var(--u) * 0.24),14px);font-weight:700;
+.w-dy{font-family:var(--p-mono);font-size:clamp(9.5px,calc(var(--u) * 0.276),16.1px);font-weight:700;
   letter-spacing:.06em;text-transform:uppercase;opacity:.8}
 .w-ic{width:clamp(22px,calc(var(--u) * 0.78),46px);height:clamp(22px,calc(var(--u) * 0.78),46px);opacity:.95}
 .w-ic svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.w-tp{font-family:var(--p-mono);font-size:clamp(12px,calc(var(--u) * 0.324),19px);font-weight:700;line-height:1.15;text-align:center}
+.w-tp{font-family:var(--p-mono);font-size:clamp(12px,calc(var(--u) * 0.3726),21.8px);font-weight:700;line-height:1.15;text-align:center}
 .w-tp span{opacity:.6;font-weight:500;font-size:.85em}
 .w-val{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
-  font-size:clamp(30px,calc(var(--u) * 1.26),62px);letter-spacing:-.035em;line-height:.92;display:flex;align-items:baseline;gap:.1em}
+  font-size:clamp(30px,calc(var(--u) * 1.449),71.3px);letter-spacing:-.035em;line-height:.92;display:flex;align-items:baseline;gap:.1em}
 .w-val small{font-size:.33em;font-weight:500;opacity:.7}
 @media (prefers-reduced-motion: reduce){.w-fx,.w-fx *{animation:none !important}}
 `;
@@ -2037,7 +2037,7 @@ const ENERGY_CSS = `
 .e-big{
   font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
   letter-spacing:-.04em;line-height:.9;display:flex;align-items:baseline;gap:.1em;
-  font-size:clamp(23px,calc(var(--u) * 1.056),48px);
+  font-size:clamp(23px,calc(var(--u) * 1.2144),55.2px);
 }
 .e-big small{font-size:.36em;font-weight:500;opacity:.75}
 .e-pv{color:#A3E635;text-shadow:0 0 20px rgba(163,230,53,.6)}
@@ -2059,7 +2059,7 @@ const ENERGY_CSS = `
   background:linear-gradient(90deg,#A3E635,#22D3EE);box-shadow:0 0 22px rgba(120,230,200,.7);
   transition:width .6s cubic-bezier(.2,.8,.2,1)}
 .e-tube span.pct{position:absolute;inset:0;display:grid;place-items:center;
-  font-family:var(--p-mono);font-weight:700;font-size:clamp(8.5px,calc(var(--u) * 0.24),11px);
+  font-family:var(--p-mono);font-weight:700;font-size:clamp(8.5px,calc(var(--u) * 0.276),12.6px);
   color:#04121A;text-shadow:0 1px 0 rgba(255,255,255,.3)}
 .e-tube .sheen{position:absolute;top:0;bottom:0;width:34%;left:-40%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
@@ -2939,7 +2939,7 @@ const NETWORK_CSS = `
 .n-nums{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .n-big{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
   letter-spacing:-.04em;line-height:.9;display:flex;align-items:baseline;gap:.08em;
-  font-size:clamp(20px,calc(var(--u) * 0.78),40px)}
+  font-size:clamp(20px,calc(var(--u) * 0.897),46px)}
 .n-big small{font-size:.34em;font-weight:500;opacity:.72}
 .n-dn{color:#67E8F9;text-shadow:0 0 18px rgba(103,232,249,.5)}
 .n-up{color:#A7F3D0;text-shadow:0 0 18px rgba(167,243,208,.45)}
@@ -3245,9 +3245,9 @@ const PRINTER_CSS = `
 .pr-progtop{display:flex;align-items:baseline;gap:.7em}
 .pr-pct{display:flex;align-items:baseline;gap:3px}
 .pr-pct b{font-family:var(--p-display);font-weight:700;letter-spacing:-1.3px;line-height:1;
-  font-size:clamp(20px,calc(var(--u) * .6),36px)}
+  font-size:clamp(20px,calc(var(--u) * 0.69),41.4px)}
 .pr-pct i{font-family:var(--p-display);font-style:normal;font-weight:600;color:#7D8985;
-  font-size:clamp(11px,calc(var(--u) * .319),19px)}
+  font-size:clamp(11px,calc(var(--u) * 0.3668),21.8px)}
 .pr-lbl{font-family:var(--p-mono);letter-spacing:1px;color:#6F7A76;
   font-size:clamp(8px,calc(var(--u) * .225),13px)}
 .pr-rest{font-family:var(--p-display);font-weight:700;letter-spacing:-.6px;
@@ -3268,7 +3268,7 @@ const PRINTER_CSS = `
 .pr-tile .k{font-family:var(--p-mono);letter-spacing:.8px;color:#6F7A76;
   font-size:clamp(7.5px,calc(var(--u) * .206),12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-tile .v{font-family:var(--p-display);font-weight:700;letter-spacing:-.6px;line-height:1.15;
-  font-size:clamp(10px,calc(var(--u) * .356),20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(10px,calc(var(--u) * 0.4094),23px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr.off .pr-tile .v{color:#9AA5A1}
 
 .pr-ams{flex:none;display:flex;align-items:center;gap:.6em;min-width:0}
@@ -3282,7 +3282,7 @@ const PRINTER_CSS = `
 .pr-slot i{width:clamp(11px,calc(var(--u) * .28),17px);aspect-ratio:1;flex:none;border-radius:4px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
 .pr-slot b{font-family:var(--p-mono);font-weight:400;color:#C3CCC8;
-  font-size:clamp(8px,calc(var(--u) * .234),13px);
+  font-size:clamp(8px,calc(var(--u) * 0.2691),14.9px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Ausgeschaltet: AMS groß */
@@ -3294,7 +3294,7 @@ const PRINTER_CSS = `
 .pr-bigslot i{flex:1;min-height:clamp(14px,calc(var(--u) * .5),34px);border-radius:8px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
 .pr-bigslot b{font-family:var(--p-mono);font-weight:400;color:#C3CCC8;text-align:center;
-  font-size:clamp(8px,calc(var(--u) * .234),13px);line-height:1.2;
+  font-size:clamp(8px,calc(var(--u) * 0.2691),14.9px);line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-bigslot.empty i{background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px) !important}
 .pr-bigslot.empty b{color:#6F7A76}
@@ -3303,7 +3303,7 @@ const PRINTER_CSS = `
 .pr-blockk{font-family:var(--p-mono);letter-spacing:1px;color:#6F7A76;
   font-size:clamp(8px,calc(var(--u) * .225),13px)}
 .pr-off-big{font-family:var(--p-display);font-weight:700;letter-spacing:-.8px;line-height:1.2;color:#B9C2BE;
-  font-size:clamp(14px,calc(var(--u) * .431),25px)}
+  font-size:clamp(14px,calc(var(--u) * 0.4956),28.7px)}
 .pr-last{font-family:var(--p-display);font-weight:600;line-height:1.35;letter-spacing:-.2px;color:#D5DBD8;
   font-size:clamp(11px,calc(var(--u) * .319),19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-lastmeta{font-family:var(--p-mono);color:#8E9995;
@@ -3626,10 +3626,10 @@ const VACUUM_CSS = `
 @keyframes v-blink{0%,100%{opacity:1}50%{opacity:.35}}
 
 .v-val{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
-  letter-spacing:-.04em;line-height:.95;font-size:clamp(19px,calc(var(--u) * 0.63),44px);
+  letter-spacing:-.04em;line-height:.95;font-size:clamp(19px,calc(var(--u) * 0.7245),50.6px);
   display:flex;align-items:baseline;gap:.06em}
 .v-val small{font-size:.38em;font-weight:500;opacity:.72}
-.v-val.txt{font-family:var(--p-display);font-size:clamp(15px,calc(var(--u) * 0.45),30px);letter-spacing:-.02em}
+.v-val.txt{font-family:var(--p-display);font-size:clamp(15px,calc(var(--u) * 0.5175),34.5px);letter-spacing:-.02em}
 /* Der Name darf umbrechen statt abzuschneiden — bei zwei Spalten Breite
    passen längere Gerätenamen sonst nicht in eine Zeile. Zwei Zeilen sind das
    Maximum, danach wird gekürzt. */
@@ -4077,7 +4077,7 @@ const CALENDAR_CSS = `
   display:flex;flex-direction:column;justify-content:center;line-height:1}
 .c-wd{font-family:var(--p-mono);font-weight:700;font-size:clamp(7.5px,calc(var(--u) * 0.36),11px);
   letter-spacing:.08em;text-transform:uppercase;opacity:.6}
-.c-dd{font-family:var(--p-mono);font-weight:700;font-size:clamp(15px,calc(var(--u) * 0.84),26px);
+.c-dd{font-family:var(--p-mono);font-weight:700;font-size:clamp(15px,calc(var(--u) * 0.966),29.9px);
   letter-spacing:-.03em;margin:.1em 0}
 .c-mo{font-family:var(--p-mono);font-weight:700;font-size:clamp(7px,calc(var(--u) * 0.336),10px);
   letter-spacing:.08em;text-transform:uppercase;opacity:.6}
@@ -4611,7 +4611,7 @@ const EV_CSS = `
 
 /* Ladeansicht links */
 .ev-pw{font-family:var(--p-display);font-weight:800;letter-spacing:-.04em;line-height:.92;color:var(--ac);
-  font-size:clamp(24px,calc(var(--u) * 0.792),54px);display:flex;align-items:baseline;gap:.08em}
+  font-size:clamp(24px,calc(var(--u) * 0.9108),62.1px);display:flex;align-items:baseline;gap:.08em}
 .ev-pw small{font-size:.3em;font-weight:600;opacity:.75}
 .ev-sub{font-family:var(--p-display);font-weight:800;font-size:clamp(10px,calc(var(--u) * 0.222),17px);margin-top:.2em}
 .ev-sub2{font-size:clamp(8.5px,calc(var(--u) * 0.162),12.5px);color:var(--dim);margin-top:.15em;display:flex;align-items:center;gap:.35em}
@@ -4635,7 +4635,7 @@ const EV_CSS = `
   display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:.45em;
   min-width:0;min-height:0;overflow:hidden;cursor:pointer;text-align:left}
 .ev-tile ha-icon{--mdc-icon-size:clamp(13px,calc(var(--u) * 0.228),22px);opacity:.7;flex:none}
-.ev-tile .v{font-family:var(--p-display);font-weight:500;font-size:clamp(11px,calc(var(--u) * 0.24),22px);
+.ev-tile .v{font-family:var(--p-display);font-weight:500;font-size:clamp(11px,calc(var(--u) * 0.36),25.3px);
   line-height:1.1;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev-tile.lock-open{background:rgba(251,113,133,.24);box-shadow:inset 0 0 0 1px rgba(251,113,133,.5)}
 .ev-tile.lock-open .v{color:#FFE4E9}
@@ -5061,7 +5061,7 @@ const HEIZUNG_CSS = `
 .hz-cell .k{font-family:var(--p-mono);letter-spacing:.06em;color:var(--hz-sub);
   font-size:clamp(6px,calc(var(--u) * .15),10.5px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hz-cell .v{font-family:var(--p-display);font-weight:700;letter-spacing:-.01em;
-  font-size:clamp(9px,calc(var(--u) * .26),19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(9px,calc(var(--u) * 0.299),21.8px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hz-off{color:var(--hz-off)}
 
 /* Gaszeile */
@@ -5069,7 +5069,7 @@ const HEIZUNG_CSS = `
 .hz-foot .k{font-family:var(--p-mono);letter-spacing:.06em;color:var(--hz-sub);white-space:nowrap;
   font-size:clamp(6px,calc(var(--u) * .15),10.5px)}
 .hz-foot .v{font-family:var(--p-display);font-weight:700;white-space:nowrap;
-  font-size:clamp(8.5px,calc(var(--u) * .234),17px)}
+  font-size:clamp(8.5px,calc(var(--u) * 0.2691),19.5px)}
 .hz-foot svg{flex:1;min-width:0;height:clamp(14px,calc(var(--u) * .34),26px);display:block}
 .hz-spark{fill:none;stroke:var(--hz-accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
   vector-effect:non-scaling-stroke}
@@ -5354,7 +5354,7 @@ const CAMERA_CSS = `
   background:linear-gradient(to top, oklch(0.16 0.06 300 / 0.9), transparent 60%)}
 .cam-shot .cap{position:absolute;left:calc(var(--u) * .3);bottom:calc(var(--u) * .27);right:calc(var(--u) * .3)}
 .cam-shot .cap b{display:block;font-family:var(--p-display);font-weight:600;line-height:1.2;
-  font-size:clamp(12px,calc(var(--u) * .36),21px);
+  font-size:clamp(12px,calc(var(--u) * 0.414),24.1px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-shot .cap span{display:block;font-family:var(--p-mono);color:oklch(0.82 0.05 310);margin-top:.2em;
   font-size:clamp(8px,calc(var(--u) * .21),12px);
@@ -5381,7 +5381,7 @@ const CAMERA_CSS = `
   border-radius:2px;background:var(--k)}
 .cam-ev .txt{flex:1;min-width:0}
 .cam-ev .txt b{display:block;font-family:var(--p-display);font-weight:600;line-height:1.25;
-  font-size:clamp(9.5px,calc(var(--u) * .25),14px);
+  font-size:clamp(9.5px,calc(var(--u) * 0.2875),16.1px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-ev .txt span{display:block;font-family:var(--p-mono);color:oklch(0.82 0.05 310);
   font-size:clamp(7.5px,calc(var(--u) * .19),11px);
@@ -6127,7 +6127,7 @@ const BALANCE_CSS = NEON_SHELL + NEON_FULL + `
   font-size:clamp(9.5px,calc(var(--u) * 0.144),12.5px);margin-bottom:.45em}
 .bx-lg .k{opacity:.8;font-weight:700}
 .bx-lg .v{font-family:var(--p-mono);font-weight:700;letter-spacing:-.02em;
-  font-size:clamp(13px,calc(var(--u) * 0.216),19px)}
+  font-size:clamp(13px,calc(var(--u) * 0.4),21.8px)}
 .bx-sl{display:flex;justify-content:space-between;gap:.6em;font-size:var(--t-label);font-weight:700;
   letter-spacing:.06em;text-transform:uppercase;opacity:.64;margin-top:.4em}
 .bx-sl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
