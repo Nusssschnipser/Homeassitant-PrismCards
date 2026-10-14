@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v48";
+const PRISM_VERSION = "v49";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -5726,13 +5726,23 @@ class PrismGaugeCard extends PrismCard {
       : cfg.show_percent === true
         ? fmt0(pct) + " %"
         : fmt0(raw) + " " + uom(hass, cfg.entity, "%");
+    /* Der Wert unter der Zahl. Bei Leistungen entscheidet sub_unit über
+       die Einheit: "auto" wechselt bei 1 kW von Watt auf Kilowatt, was
+       im Ring vierstellige Wattzahlen erzeugen kann — "kW" erzwingt die
+       kurze Schreibweise, die dort besser passt. */
     let sub = cfg.sub_label || "";
     if (cfg.sub_entity) {
-      const s = nxKw(hass, cfg.sub_entity);
+      const kw = nxKw(hass, cfg.sub_entity);
       const u = String(uom(hass, cfg.sub_entity, "")).toLowerCase();
-      sub = (u === "w" || u === "kw" || u === "mw")
-        ? (function () { const p = nxPower(s); return p.v + " " + p.u; })()
-        : (num(hass, cfg.sub_entity) === null ? "–" : fmt(num(hass, cfg.sub_entity), 1) + " " + uom(hass, cfg.sub_entity, ""));
+      if (u === "w" || u === "kw" || u === "mw") {
+        if (kw === null) sub = "–";
+        else if (cfg.sub_unit === "kW") sub = fmt(kw, 1) + " kW";
+        else if (cfg.sub_unit === "W") sub = fmt0(kw * 1000) + " W";
+        else { const p = nxPower(kw); sub = p.v + " " + p.u; }
+      } else {
+        const r = num(hass, cfg.sub_entity);
+        sub = r === null ? "–" : fmt(r, 1) + " " + uom(hass, cfg.sub_entity, "");
+      }
     }
 
     const state = cfg.state_text || (cfg.state_entity ? friendly(hass, cfg.state_entity, stateOf(hass, cfg.state_entity)) : "");
@@ -5782,6 +5792,11 @@ register("prism-gauge-card", PrismGaugeCard, {
   { name: "state_entity", selector: { entity: {} } },
   { name: "state_text", selector: { text: {} } },
   { name: "show_percent", selector: { boolean: {} } },
+  { name: "sub_unit", selector: { select: { mode: "dropdown", options: [
+    { value: "auto", label: "Automatisch — unter 1 kW in Watt" },
+    { value: "kW", label: "Immer Kilowatt" },
+    { value: "W", label: "Immer Watt" },
+  ] } } },
   { name: "accent", selector: { text: {} } },
   { name: "min", selector: { number: { mode: "box" } } },
   { name: "max", selector: { number: { mode: "box" } } },
@@ -5798,6 +5813,7 @@ register("prism-gauge-card", PrismGaugeCard, {
   state_entity: "Entität für die Statuszeile",
   state_text: "Fester Text für die Statuszeile",
   show_percent: "Füllgrad in Prozent statt des Rohwerts anzeigen",
+  sub_unit: "Einheit des Werts in der Ringmitte",
   accent: "Akzentfarbe des Rings, z. B. #22D3EE",
   min: "Kleinster Wert des Rings",
   max: "Größter Wert des Rings",

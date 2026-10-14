@@ -4,7 +4,7 @@
 
 Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprache, eine gemeinsame Größenskala, keine Abhängigkeiten und kein Build-Schritt — eine einzige JavaScript-Datei.
 
-![Version](https://img.shields.io/badge/version-v48-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
+![Version](https://img.shields.io/badge/version-v49-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
 
 ---
 
@@ -21,7 +21,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 
 1. `dist/prism-cards.js` nach `/config/www/prism-cards.js` kopieren.
 2. **Einstellungen → Dashboards → Ressourcen → Ressource hinzufügen**:
-   - URL: `/local/prism-cards.js?v=48`
+   - URL: `/local/prism-cards.js?v=49`
    - Typ: JavaScript-Modul
 3. Seite mit Strg+Umschalt+R neu laden.
 
@@ -29,7 +29,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 > Aktualisierung hoch — sonst zeigt der Cache die alte Fassung.
 
 **Version prüfen:** In der Browser-Konsole erscheint beim Laden eine Zeile wie
-`PRISM-CARDS v48 · 13 Quadrate + 9 Doppel + 2 Mini`. Alternativ in der Konsole
+`PRISM-CARDS v49 · 13 Quadrate + 9 Doppel + 2 Mini`. Alternativ in der Konsole
 `PRISM_VERSION` eingeben.
 
 ---
