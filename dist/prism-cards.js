@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v47";
+const PRISM_VERSION = "v48";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -5719,8 +5719,13 @@ class PrismGaugeCard extends PrismCard {
     const pct = raw === null ? null : ((raw - lo) / span) * 100;
     const ac = cfg.accent || "#22D3EE";
 
-    /* Der Wert in der Mitte: eigener Sensor, sonst der Ringwert selbst */
-    let mid = raw === null ? "–" : fmt0(raw) + " " + uom(hass, cfg.entity, "%");
+    /* Der Wert in der Mitte: wahlweise der Füllgrad in Prozent — das
+       ist bei einer Skala wie 0…20 kWp die aussagekräftigere Zahl —
+       sonst der Rohwert mit seiner eigenen Einheit. */
+    let mid = raw === null ? "–"
+      : cfg.show_percent === true
+        ? fmt0(pct) + " %"
+        : fmt0(raw) + " " + uom(hass, cfg.entity, "%");
     let sub = cfg.sub_label || "";
     if (cfg.sub_entity) {
       const s = nxKw(hass, cfg.sub_entity);
@@ -5776,6 +5781,7 @@ register("prism-gauge-card", PrismGaugeCard, {
   { name: "sub_label", selector: { text: {} } },
   { name: "state_entity", selector: { entity: {} } },
   { name: "state_text", selector: { text: {} } },
+  { name: "show_percent", selector: { boolean: {} } },
   { name: "accent", selector: { text: {} } },
   { name: "min", selector: { number: { mode: "box" } } },
   { name: "max", selector: { number: { mode: "box" } } },
@@ -5791,6 +5797,7 @@ register("prism-gauge-card", PrismGaugeCard, {
   sub_label: "Fester Text statt des Werts in der Ringmitte",
   state_entity: "Entität für die Statuszeile",
   state_text: "Fester Text für die Statuszeile",
+  show_percent: "Füllgrad in Prozent statt des Rohwerts anzeigen",
   accent: "Akzentfarbe des Rings, z. B. #22D3EE",
   min: "Kleinster Wert des Rings",
   max: "Größter Wert des Rings",
