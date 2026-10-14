@@ -2,7 +2,7 @@
 
 A set of 18 Lovelace cards for Home Assistant. One shared visual language, one shared type scale, no dependencies, no build step — a single JavaScript file.
 
-![Version](https://img.shields.io/badge/version-v45-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-v46-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Language note:** the card interface is currently **German only** — status words,
 > labels, weekdays and the visual editor. The code is fully functional in any
@@ -26,15 +26,15 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 
 1. Copy `dist/prism-cards.js` to `/config/www/prism-cards.js`.
 2. **Settings → Dashboards → Resources → Add resource**:
-   - URL: `/local/prism-cards.js?v=45`
+   - URL: `/local/prism-cards.js?v=46`
    - Type: JavaScript module
 3. Hard-reload the page (Ctrl+Shift+R).
 
-> The `?v=45` parameter forces the browser to reload the file. Increment it on
+> The `?v=46` parameter forces the browser to reload the file. Increment it on
 > every update — otherwise the cache keeps serving the old version.
 
 **Check which version is loaded:** the browser console prints a line on load,
-`PRISM-CARDS v45 · 10 Quadrate + 6 Doppel + 2 Mini`. You can also type
+`PRISM-CARDS v46 · 10 Quadrate + 6 Doppel + 2 Mini`. You can also type
 `PRISM_VERSION` in the console.
 
 ---

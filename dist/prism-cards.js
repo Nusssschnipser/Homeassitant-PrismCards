@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v45";
+const PRISM_VERSION = "v46";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -4540,7 +4540,22 @@ register("prism-clock-card", PrismClockCard, {
      Rahmen, Icon und Statuszeile ziehen mit.
    ══════════════════════════════════════════════════════════════ */
 
-const EV_MODES = [["off", "Aus"], ["pv", "PV"], ["minpv", "Min+PV"], ["now", "Schnell"]];
+/* Beschriftungen der EVCC-Lademodi. EVCC ändert die Auswahl von Zeit zu
+   Zeit (früher off/pv/minpv/now, heute off/smart/now), darum liest die
+   Karte die Optionen direkt aus der select-Entität und greift hier nur
+   die Übersetzung ab. Unbekannte Werte werden unverändert angezeigt. */
+const EV_MODE_LABELS = {
+  off: "Aus", pv: "PV", minpv: "Min+PV", smart: "Smart", now: "Schnell",
+  min: "Min", solar: "Solar", fast: "Schnell",
+};
+/* Modus-Optionen der select-Entität, mit Fallback auf den aktuellen Zustand */
+function evModes(hass, id) {
+  const st = id ? hass.states[id] : null;
+  if (!st) return [];
+  const o = st.attributes && st.attributes.options;
+  if (Array.isArray(o) && o.length) return o.map(String);
+  return st.state && st.state !== "unknown" && st.state !== "unavailable" ? [String(st.state)] : [];
+}
 
 /* Leistung immer in kW, egal ob der Sensor W oder kW liefert */
 function evKw(hass, id) {
@@ -4648,9 +4663,12 @@ const EV_CSS = `
 
 /* Modus-Pille */
 .ev-seg{display:flex;gap:2px;border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:2px;
-  margin-top:.35em}
-.ev-seg b{flex:1;text-align:center;cursor:pointer;border-radius:999px;font-weight:700;
-  font-size:clamp(8.5px,calc(var(--u) * 0.174),14px);padding:.45em .2em;opacity:.8;white-space:nowrap;
+  margin-top:.35em;--n:3}
+/* Weniger Schaltflächen heißt mehr Platz je Fläche: ab vier Modi wird die
+   Schrift wieder kleiner, damit auch längere Namen nebeneinander passen. */
+.ev-seg b{flex:1;min-width:0;text-align:center;cursor:pointer;border-radius:999px;font-weight:700;
+  font-size:clamp(8.5px,calc(var(--u) * 0.174 * 3 / max(var(--n), 3)),14px);
+  padding:.45em .2em;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   transition:background .18s,opacity .18s}
 .ev-seg b:hover{opacity:1}
 .ev-seg b.on{background:#fff;color:#0B0F2E;opacity:1}
@@ -4703,6 +4721,7 @@ class PrismEvCard extends PrismCard {
     const solar = num(hass, cfg.solar_percentage);
     const range = num(hass, cfg.vehicle_range);
     const mode = cfg.mode_select ? stateOf(hass, cfg.mode_select) : null;
+    const modes = evModes(hass, cfg.mode_select);
     const charging = power !== null && power > 0.05;
 
     const flows = [];
@@ -4711,8 +4730,8 @@ class PrismEvCard extends PrismCard {
 
     return {
       charging,
-      status: charging ? "Lädt" + (mode ? " · " + this._modeLabel(mode) : "")
-        : "Angesteckt" + (mode ? " · " + this._modeLabel(mode) : ""),
+      status: (charging ? "Lädt" : "Angesteckt")
+        + (mode && mode !== "unknown" && mode !== "unavailable" ? " · " + this._modeLabel(mode) : ""),
       icon: "mdi:ev-station",
       name: cfg.name,
       body: `<div class="ev-mid">
@@ -4741,13 +4760,12 @@ class PrismEvCard extends PrismCard {
             <span>Fahrzeug ${soc === null ? "–" : fmt0(soc) + " %"}${limit ? " → " + fmt0(limit) + " %" : ""}</span>
             <span>${rest ? "noch " + rest : (charging ? "lädt" : "wartet")}</span>
           </div>
-          ${cfg.mode_select ? `<div class="ev-seg" id="ev-seg">${EV_MODES.map(([k, l]) =>
-            `<b data-mode="${k}" class="${mode === k ? "on" : ""}">${l}</b>`).join("")}</div>` : ""}`,
+          ${modes.length ? `<div class="ev-seg" id="ev-seg" style="--n:${modes.length}">${modes.map((k) =>
+            `<b data-mode="${esc(k)}" class="${mode === k ? "on" : ""}">${esc(this._modeLabel(k))}</b>`).join("")}</div>` : ""}`,
     };
   }
   _modeLabel(m) {
-    const f = EV_MODES.find((x) => x[0] === m);
-    return f ? f[1] : m;
+    return EV_MODE_LABELS[m] || String(m).charAt(0).toUpperCase() + String(m).slice(1);
   }
 
   /* ---------- Unterwegs ---------- */
