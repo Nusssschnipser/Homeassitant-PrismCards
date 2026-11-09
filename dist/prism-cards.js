@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v52";
+const PRISM_VERSION = "v53";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -2049,18 +2049,29 @@ const ENERGY_CSS = `
 .e-plot .axis{stroke:rgba(255,255,255,.28);stroke-width:.8;stroke-dasharray:3 4}
 .e-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.312),13px);opacity:.6}
 
-.e-lbl{display:flex;justify-content:space-between;gap:1em;
-  font-family:var(--p-mono);font-size:clamp(8px,calc(var(--u) * 0.24),11px);opacity:.7;margin-bottom:5px}
+.e-lbl{display:flex;justify-content:space-between;align-items:baseline;gap:1em;
+  font-family:var(--p-mono);font-size:clamp(8px,calc(var(--u) * 0.24),11px);margin-bottom:5px}
+.e-lbl > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e-lbl .l{display:flex;align-items:baseline;gap:.5em;flex:none}
+.e-lbl .k{opacity:.7}
+.e-lbl .r{opacity:.7;text-align:right}
+/* Der Akkustand stand früher mittig IN der Röhre, in dunkler Schrift:
+   bei vollem Balken lag er auf der hellen Füllung und war lesbar, bei
+   niedrigem Stand auf dem dunklen leeren Teil und verschwand. Jetzt
+   steht er darüber, groß, in der Farbe des Balkens. */
+.e-soc{font-family:var(--p-mono);font-weight:700;letter-spacing:-.02em;line-height:1;
+  font-size:clamp(13px,calc(var(--u) * 0.46),24px);color:var(--soc-col,#A3E635)}
 .e-tube{
   position:relative;height:clamp(12px,calc(var(--u) * 0.312),20px);border-radius:999px;overflow:hidden;
   background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);cursor:pointer;
 }
 .e-tube i{display:block;height:100%;border-radius:999px;
-  background:linear-gradient(90deg,#A3E635,#22D3EE);box-shadow:0 0 22px rgba(120,230,200,.7);
-  transition:width .6s cubic-bezier(.2,.8,.2,1)}
-.e-tube span.pct{position:absolute;inset:0;display:grid;place-items:center;
-  font-family:var(--p-mono);font-weight:700;font-size:clamp(8.5px,calc(var(--u) * 0.276),12.6px);
-  color:#04121A;text-shadow:0 1px 0 rgba(255,255,255,.3)}
+  background:linear-gradient(90deg,var(--soc-deep,#65A30D),var(--soc-col,#A3E635));
+  box-shadow:0 0 22px var(--soc-glow,rgba(120,230,200,.7));
+  transition:width .6s cubic-bezier(.2,.8,.2,1),background .6s linear}
+/* Markierung bei 20 % — macht sichtbar, wo der Farbwechsel ansetzt */
+.e-tube u{position:absolute;top:0;bottom:0;left:20%;width:1px;
+  background:rgba(255,255,255,.34);pointer-events:none}
 .e-tube .sheen{position:absolute;top:0;bottom:0;width:34%;left:-40%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
   animation:e-sheen 3.4s linear infinite}
@@ -2068,6 +2079,22 @@ const ENERGY_CSS = `
 .card.e-idle .e-tube .sheen{display:none}
 @media (prefers-reduced-motion: reduce){.e-tube .sheen{display:none}.e-tube i{transition:none}}
 `;
+
+/* Farbe des Akkubalkens nach Ladestand: bis 20 % rot, ab 90 % grün,
+   dazwischen gleitend über Orange und Gelb. Der Farbton ist bewusst
+   nicht der einzige Träger der Aussage — der Prozentwert steht als
+   Zahl daneben, sonst wäre der Balken für Rotblinde stumm. */
+function socColors(pct) {
+  if (pct === null || pct === undefined || isNaN(pct)) {
+    return "--soc-col:rgba(255,255,255,.34);--soc-deep:rgba(255,255,255,.22);" +
+      "--soc-glow:rgba(255,255,255,.18)";
+  }
+  const v = Math.max(0, Math.min(100, Number(pct)));
+  const h = v <= 20 ? 4 : v >= 90 ? 142 : 4 + ((v - 20) / 70) * 138;
+  const d = h.toFixed(0);
+  return "--soc-col:hsl(" + d + " 88% 58%);--soc-deep:hsl(" + d + " 80% 44%);" +
+    "--soc-glow:hsla(" + d + ",88%,56%,.55)";
+}
 
 class PrismEnergyCard extends PrismCard {
   static defaults = { title: "Energie & PV", hours: 24 };
@@ -2158,6 +2185,7 @@ class PrismEnergyCard extends PrismCard {
     const w = 600, h = 130;
     const m = this._mirror(w, h);
     const powerTxt = charging ? fmt(charge, 2) + " kW" : discharging ? fmt(discharge, 2) + " kW" : "im Ruhezustand";
+    const socVars = socColors(soc);
 
     return {
       tone: "solar", ink: "#EAFDFF",
@@ -2203,13 +2231,14 @@ class PrismEnergyCard extends PrismCard {
         : `<div class="e-plot"><div class="e-empty">${
             cfg.pv_power || cfg.consumption_power ? "Verlauf wird geladen…" : "Keine Verlaufs-Entitäten gewählt."
           }</div></div>`,
-      foot: `<div class="e-lbl">
-               <span>AKKU · ${esc(powerTxt)}</span>
-               <span>${esc(eta || (soc === null ? "" : (charging ? "lädt" : discharging ? "entlädt" : "hält")))}</span>
+      foot: `<div class="e-lbl" style="${esc(socVars)}">
+               <span class="l"><span class="k">AKKU</span>
+                 <b class="e-soc">${soc === null ? "–" : fmt0(soc) + " %"}</b></span>
+               <span class="r">${esc([powerTxt, eta].filter(Boolean).join(" · "))}</span>
              </div>
-             <div class="e-tube" id="e-bat">
+             <div class="e-tube" id="e-bat" style="${esc(socVars)}">
                <i style="width:${soc === null ? 0 : Math.max(0, Math.min(100, soc))}%"></i>
-               <span class="pct">${soc === null ? "–" : fmt0(soc) + " %"}</span>
+               <u></u>
                <span class="sheen"></span>
              </div>`,
     };
