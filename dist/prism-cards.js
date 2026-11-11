@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v54";
+const PRISM_VERSION = "v55";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -954,7 +954,7 @@ class PrismCard extends HTMLElement {
   _a11y() {
     const root = this.shadowRoot;
     if (!root) return;
-    const sel = "#head.tap,[data-mi],.act,.ctrl .btn,.pp,#mute,.cam-ev,#cam-shot,#cam-pill," +
+    const sel = "#head.tap,[data-mi],.act,.ctrl .btn,.pp,#mute,.cam-ev,#cam-shot,#cam-pill,#cam-head.tap," +
       "#ev-seg b,#ev-clim,#ev-bar,.soc[id],#pr-power,#pr-yes,#pr-no,#pr-shot,#pr-head,#pr-bar,.chip.more,.p-warn";
     root.querySelectorAll(sel).forEach((el) => {
       if (el.tagName === "BUTTON" || el.hasAttribute("tabindex")) return;
@@ -5637,6 +5637,9 @@ register("prism-heizung-card", PrismHeizungCard, {
    Die Ereignisse entstehen aus der Zustandshistorie der gewählten
    Melder — jeder Wechsel auf „on" ist ein Ereignis. Dafür braucht es
    keine zusätzlichen Helfer in Home Assistant.
+
+   Ein Tipp auf ein Ereignis öffnet den passenden Videoclip aus den
+   Reolink-Medien, ein Tipp auf den Titel den Sicherheitsverlauf.
    ══════════════════════════════════════════════════════════════ */
 
 /* Ereignistyp aus Entität und Name erraten */
@@ -5649,12 +5652,206 @@ function camEventKind(id, label) {
   return "other";
 }
 const CAM_KIND = {
-  ring:    { color: "oklch(0.72 0.16 45)",  word: "Klingel gedrückt" },
-  person:  { color: "oklch(0.72 0.16 250)", word: "Person erkannt" },
-  motion:  { color: "oklch(0.72 0.16 145)", word: "Bewegung erkannt" },
-  package: { color: "oklch(0.72 0.16 320)", word: "Paket abgelegt" },
-  other:   { color: "oklch(0.72 0.02 260)", word: "Ereignis" },
+  ring:    { color: "oklch(0.72 0.16 45)",  word: "Klingel gedrückt", icon: "mdi:bell-ring" },
+  person:  { color: "oklch(0.72 0.16 250)", word: "Person erkannt", icon: "mdi:account" },
+  motion:  { color: "oklch(0.72 0.16 145)", word: "Bewegung erkannt", icon: "mdi:motion-sensor" },
+  package: { color: "oklch(0.72 0.16 320)", word: "Paket abgelegt", icon: "mdi:package-variant-closed" },
+  other:   { color: "oklch(0.72 0.02 260)", word: "Ereignis", icon: "mdi:cctv" },
 };
+
+/* ---------- Popup ----------
+   Ein eigenes Fenster über dem Dashboard, für den Videoclip eines
+   Ereignisses und für den Sicherheitsverlauf. Es hängt am <body>, liegt
+   als <dialog> in der obersten Ebene und folgt den Farben des Themes. */
+const POPUP_CSS = `
+:host{display:contents;
+  --pp-display:"Bricolage Grotesque",var(--ha-card-header-font-family,system-ui),system-ui,sans-serif;
+  --pp-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace}
+dialog{box-sizing:border-box;margin:auto;padding:0;overflow:hidden;
+  width:min(var(--pp-w,760px),calc(100vw - 20px));max-width:none;
+  max-height:min(calc(100dvh - 20px),920px);
+  border:1px solid var(--divider-color,rgba(127,127,127,.3));
+  border-radius:var(--ha-card-border-radius,24px);
+  background:var(--card-background-color,#1c1c1e);color:var(--primary-text-color,#f5f5f7);
+  box-shadow:0 24px 80px rgba(0,0,0,.55);font-family:var(--pp-display)}
+dialog[open]{display:flex;flex-direction:column}
+dialog::backdrop{background:rgba(6,6,12,.62);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.pp-hd{flex:none;display:flex;align-items:center;gap:12px;padding:12px 8px 12px 16px}
+.pp-ic{flex:none;width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+  color:var(--pp-k,var(--primary-color,#8b5cf6));
+  background:color-mix(in srgb,var(--pp-k,var(--primary-color,#8b5cf6)) 18%,transparent)}
+.pp-ic ha-icon{--mdc-icon-size:22px}
+.pp-tt{flex:1;min-width:0}
+.pp-tt b{display:block;font-weight:800;font-size:18px;letter-spacing:-.02em;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-tt span{display:block;margin-top:3px;font-family:var(--pp-mono);font-size:12px;
+  color:var(--secondary-text-color,#a1a1aa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pp-acts{flex:none;display:flex;align-items:center}
+.pp-btn{flex:none;width:44px;height:44px;padding:0;border:0;border-radius:50%;cursor:pointer;
+  display:grid;place-items:center;background:none;color:inherit}
+.pp-btn:hover{background:color-mix(in srgb,currentColor 10%,transparent)}
+.pp-btn:active{background:color-mix(in srgb,currentColor 18%,transparent)}
+.pp-btn:focus-visible,.pp-pill:focus-visible{outline:2px solid var(--primary-color,#8b5cf6);outline-offset:2px}
+.pp-btn ha-icon{--mdc-icon-size:22px}
+.pp-bd{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column}
+
+/* Bühne des Videoclips */
+.pp-stage{position:relative;flex:none;background:#000;aspect-ratio:16/9;max-height:calc(100dvh - 190px);
+  display:grid;place-items:center;color:#f5f5f7}
+.pp-stage video,.pp-stage ha-hls-player{position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;background:#000;display:block}
+.pp-msg{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:20px;text-align:center;max-width:44ch;font-size:14px;line-height:1.4}
+.pp-msg ha-icon{--mdc-icon-size:34px;opacity:.75}
+.pp-msg b{font-size:16px}
+.pp-msg span{opacity:.78}
+.pp-wait{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.pp-spin{width:30px;height:30px;border-radius:50%;border:3px solid rgba(255,255,255,.22);
+  border-top-color:#fff;animation:pp-spin .8s linear infinite}
+@keyframes pp-spin{to{transform:rotate(360deg)}}
+.pp-row{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px}
+.pp-pill{min-height:40px;padding:0 16px;border-radius:999px;cursor:pointer;font:inherit;font-weight:600;
+  font-size:14px;color:inherit;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22)}
+.pp-pill:hover{background:rgba(255,255,255,.22)}
+.pp-ft{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:10px 16px 14px;
+  font-family:var(--pp-mono);font-size:12px;color:var(--secondary-text-color,#a1a1aa)}
+.pp-ft:empty{display:none}
+.pp-ft b{color:var(--primary-text-color,#f5f5f7);font-weight:700}
+
+/* Verlauf: die Logbuch-Karte von Home Assistant füllt den Körper */
+.pp-log{flex:1 1 auto;height:min(68dvh,640px);min-height:240px;
+  --ha-card-background:transparent;--ha-card-border-width:0px;--ha-card-box-shadow:none}
+.pp-log > *{display:block;height:100%}
+@media (prefers-reduced-motion: reduce){.pp-spin{animation-duration:2.4s}}
+`;
+
+function prismPopup(o) {
+  const host = document.createElement("div");
+  host.className = "prism-popup";
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>${POPUP_CSS}</style>
+    <dialog aria-labelledby="pp-title">
+      <div class="pp-hd">
+        <span class="pp-ic"><ha-icon icon="${esc(o.icon || "mdi:cctv")}"></ha-icon></span>
+        <span class="pp-tt"><b id="pp-title">${esc(o.title || "")}</b><span id="pp-sub">${esc(o.sub || "")}</span></span>
+        <span class="pp-acts"></span>
+        <button class="pp-btn" id="pp-close" type="button" aria-label="Schließen" title="Schließen">
+          <ha-icon icon="mdi:close"></ha-icon></button>
+      </div>
+      <div class="pp-bd"></div>
+    </dialog>`;
+  const dlg = root.querySelector("dialog");
+  if (o.color) dlg.style.setProperty("--pp-k", o.color);
+  if (o.width) dlg.style.setProperty("--pp-w", o.width + "px");
+  const pop = {
+    host, open: true, cleanup: [],
+    body: root.querySelector(".pp-bd"),
+    close() {
+      if (!pop.open) return;
+      pop.open = false;
+      pop.cleanup.forEach((fn) => { try { fn(); } catch (e) { /* egal */ } });
+      try { if (dlg.open) dlg.close(); } catch (e) { /* egal */ }
+      host.remove();
+      if (o.onClose) o.onClose();
+    },
+    setSub(txt) { root.getElementById("pp-sub").textContent = txt; },
+    addAction(icon, label, fn) {
+      const b = document.createElement("button");
+      b.className = "pp-btn"; b.type = "button"; b.title = label;
+      b.setAttribute("aria-label", label);
+      b.innerHTML = `<ha-icon icon="${esc(icon)}"></ha-icon>`;
+      b.addEventListener("click", fn);
+      root.querySelector(".pp-acts").appendChild(b);
+    },
+  };
+  root.getElementById("pp-close").addEventListener("click", () => pop.close());
+  /* Ein Klick auf den abgedunkelten Rand trifft das <dialog> selbst */
+  dlg.addEventListener("click", (ev) => { if (ev.target === dlg) pop.close(); });
+  dlg.addEventListener("close", () => pop.close());
+  /* Der Info-Dialog von Home Assistant hört nur innerhalb der Oberfläche zu.
+     Das Popup schließt sich und reicht den Wunsch an die Karte weiter. */
+  host.addEventListener("hass-more-info", (ev) => {
+    ev.stopPropagation();
+    const id = ev.detail && ev.detail.entityId;
+    pop.close();
+    if (o.onMoreInfo && id) o.onMoreInfo(id);
+  });
+  document.body.appendChild(host);
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
+  return pop;
+}
+
+/* Seitenwechsel innerhalb von Home Assistant, ohne neu zu laden */
+function prismNavigate(path) {
+  history.pushState(null, "", path);
+  const ev = new Event("location-changed", { bubbles: true, composed: true });
+  ev.detail = { replace: false };
+  window.dispatchEvent(ev);
+}
+
+/* Dieselbe Auswahl wie die Seite „Sicherheit" von Home Assistant:
+   Kameras, Alarmanlagen, Schlösser, Tore, Tür- und Fensterkontakte,
+   Gefahrenmelder — dazu die Personen. */
+const SEC_COVER = ["door", "garage", "gate", "window"];
+const SEC_BINARY = ["lock", "door", "window", "garage_door", "opening", "carbon_monoxide", "gas",
+  "glass_break", "moisture", "safety", "smoke", "tamper"];
+function securityEntityIds(hass) {
+  const out = [], persons = [];
+  for (const id in hass.states) {
+    const d = id.split(".")[0];
+    if (d === "person") { persons.push(id); continue; }
+    const reg = hass.entities && hass.entities[id];
+    if (reg && reg.hidden) continue;
+    const cat = (reg && reg.entity_category) || null;
+    const dc = hass.states[id].attributes.device_class;
+    if (d === "camera" || d === "alarm_control_panel" || d === "lock") { if (!cat) out.push(id); }
+    else if (d === "cover") { if (!cat && SEC_COVER.includes(dc)) out.push(id); }
+    else if (d === "binary_sensor") {
+      if ((!cat && SEC_BINARY.includes(dc)) || (cat === "diagnostic" && dc === "tamper")) out.push(id);
+    }
+  }
+  return out.concat(persons);
+}
+
+/* ---------- Clips der Kamera ----------
+   Die Reolink-Integration legt Aufnahmen unter Medien → Reolink →
+   Kamera → Auflösung → Tag ab. Jede Datei trägt Beginn und Ende in der
+   Ortszeit der Kamera, als JJJJMMTTHHMMSS am Ende ihrer Kennung. */
+function camStamp(s) {
+  return Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12), +s.slice(12, 14));
+}
+/* Wanduhr in der Zeitzone von Home Assistant, als Pseudo-UTC —
+   so lassen sich Ereignis und Dateistempel direkt vergleichen. */
+function camWall(t, tz) {
+  try {
+    const p = {};
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: tz || undefined, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric",
+      hour: "numeric", minute: "numeric", second: "numeric",
+    }).formatToParts(new Date(t)).forEach((x) => { p[x.type] = parseInt(x.value); });
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second);
+  } catch (e) {
+    const d = new Date(t);
+    return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
+  }
+}
+/* Der Clip, in dem das Ereignis liegt. Überlappen sich zwei, gewinnt der
+   später begonnene — er wurde durch dieses Ereignis ausgelöst. Sonst der
+   nächste, der kurz danach beginnt oder kurz davor endet. */
+function camPickClip(list, w) {
+  const S = 1000;
+  let best = null;
+  list.forEach((c) => { if (c.a - 3 * S <= w && w <= c.b + 3 * S && (!best || c.a > best.a)) best = c; });
+  if (best) return best;
+  list.forEach((c) => { if (c.a > w && c.a - w <= 45 * S && (!best || c.a < best.a)) best = c; });
+  if (best) return best;
+  list.forEach((c) => { if (c.b < w && w - c.b <= 20 * S && (!best || c.b > best.b)) best = c; });
+  return best;
+}
+function camDuration(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " min";
+}
 
 const CAMERA_CSS = `
 .card{
@@ -5679,7 +5876,12 @@ const CAMERA_CSS = `
   border-radius:calc(var(--p-radius) * .45);display:grid;place-items:center;
   background:oklch(0.99 0.004 260 / 0.10);border:1px solid oklch(0.99 0.004 260 / 0.16)}
 .cam-badge ha-icon{--mdc-icon-size:clamp(16px,calc(var(--u) * .36),24px);color:oklch(0.97 0.004 260)}
-.cam-titles{flex:1;min-width:0;display:flex;flex-direction:column}
+/* Symbol und Titel bilden zusammen die Tippfläche für den Verlauf */
+.cam-head{flex:1;min-width:0;display:flex;align-items:center;gap:inherit;border-radius:calc(var(--p-radius) * .45)}
+.cam-head.tap{cursor:pointer}
+.cam-head.tap:active{opacity:.72}
+.cam-go{flex:none;--mdc-icon-size:clamp(16px,calc(var(--u) * .4),24px);opacity:.7;margin-left:-.15em}
+.cam-titles{flex:0 1 auto;min-width:0;display:flex;flex-direction:column}
 .cam-title{font-family:var(--p-display);font-weight:800;letter-spacing:-.02em;line-height:1.12;
   font-size:var(--t-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-sub{font-family:var(--p-mono);font-weight:700;letter-spacing:.1em;text-transform:uppercase;
@@ -5769,12 +5971,14 @@ class PrismCameraCard extends PrismCard {
     if (!config || !config.camera) throw new Error("prism-camera-card: 'camera' ist Pflicht — die Kamera der Türklingel.");
     super.setConfig(config);
     this._events = null; this._evTs = 0; this._shotTick = 0;
+    this._clipDir = null; this._clipDays = null;
     this._startShot();
   }
   connectedCallback() { this._startShot(); }
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._shot) { clearInterval(this._shot); this._shot = null; }
+    this._closePop();
   }
   _startShot() {
     if (this._shot) clearInterval(this._shot);
@@ -5793,7 +5997,11 @@ class PrismCameraCard extends PrismCard {
       pre.src = next;
     }, sec * 1000);
   }
-  onHass() { this._maybeEvents(); }
+  onHass() {
+    this._maybeEvents();
+    /* Der geöffnete Verlauf bleibt aktuell */
+    if (this._pop && this._pop.card) this._pop.card.hass = this._hass;
+  }
 
   /* Melder, aus denen Ereignisse entstehen */
   _sources() {
@@ -5873,6 +6081,9 @@ class PrismCameraCard extends PrismCard {
       : last ? (CAM_KIND[last.kind] || CAM_KIND.other).word + " · " + fmtFull(last.t)
       : (camSt ? "Bereit" : "Keine Verbindung");
 
+    /* Der Kopf öffnet den Sicherheitsverlauf, solange nichts anderes eingestellt ist */
+    const headTap = !(cfg.tap_action && cfg.tap_action.action === "none");
+
     return {
       tone: "violet", ink: "#FFFFFF",
       fill: 0, quiet: false,
@@ -5880,10 +6091,14 @@ class PrismCameraCard extends PrismCard {
       head: "", foot: "",
       body: `<div class="cam">
         <div class="cam-hd">
-          <span class="cam-badge"><ha-icon icon="${cfg.icon || "mdi:cctv"}"></ha-icon></span>
-          <span class="cam-titles">
-            <span class="cam-title">${esc(cfg.title)}</span>
-            <span class="cam-sub">${esc(sub)}</span>
+          <span class="cam-head${headTap ? " tap" : ""}" id="cam-head"${
+            headTap && !(cfg.tap_action && cfg.tap_action.action) ? ` aria-label="${esc(cfg.title + " — Sicherheitsverlauf öffnen")}"` : ""}>
+            <span class="cam-badge"><ha-icon icon="${cfg.icon || "mdi:cctv"}"></ha-icon></span>
+            <span class="cam-titles">
+              <span class="cam-title">${esc(cfg.title)}</span>
+              <span class="cam-sub">${esc(sub)}</span>
+            </span>
+            ${headTap ? `<ha-icon class="cam-go" icon="mdi:chevron-right"></ha-icon>` : ""}
           </span>
           <span class="cam-pill ${online ? "" : "off"}" id="cam-pill">
             <i></i>${online ? "Online" : "Offline"}</span>
@@ -5921,13 +6136,244 @@ class PrismCameraCard extends PrismCard {
     if (card) card.classList.add("cam-full");
     this._on("cam-shot", () => this._moreInfo(cfg.camera));
     this._on("cam-pill", () => this._moreInfo(cfg.status_entity || cfg.camera));
+    const tap = cfg.tap_action;
+    if (!(tap && tap.action === "none")) {
+      this._on("cam-head", () => {
+        if (tap && tap.action) this._headTap(cfg.camera); else this._openActivity();
+      });
+    }
     const evts = this._events || [];
     this.shadowRoot.querySelectorAll(".cam-ev").forEach((el) => {
       el.addEventListener("click", () => {
         const e = evts[parseInt(el.getAttribute("data-i"))];
-        this._moreInfo(e ? e.entity : cfg.camera);
+        if (!e) { this._moreInfo(cfg.camera); return; }
+        if (cfg.clips === false) this._moreInfo(e.entity); else this._openClip(e);
       });
     });
+  }
+
+  /* ---------- Popups ---------- */
+  _closePop() {
+    const p = this._pop;
+    this._pop = null;
+    if (p) p.close();
+  }
+  _newPop(o) {
+    this._closePop();
+    const pop = prismPopup(Object.assign({
+      onClose: () => { if (this._pop === pop) this._pop = null; },
+      onMoreInfo: (id) => this._moreInfo(id),
+    }, o));
+    this._pop = pop;
+    return pop;
+  }
+
+  /* Sicherheitsverlauf — dieselbe Logbuch-Karte, die Home Assistant auf
+     der Seite „Sicherheit" unter „Aktivität" zeigt. */
+  async _openActivity() {
+    const hass = this._hass;
+    const hasPanel = !!(hass.panels && hass.panels.security);
+    const ids = securityEntityIds(hass);
+    const hasLogbook = ((hass.config && hass.config.components) || []).includes("logbook");
+    if (!ids.length || !hasLogbook || !window.loadCardHelpers) {
+      if (hasPanel) prismNavigate("/security");
+      else this._toast("Der Sicherheitsverlauf braucht die Logbuch-Integration.");
+      return;
+    }
+    const loc = (key, fallback) => (hass.localize && hass.localize(key)) || fallback;
+    const pop = this._newPop({
+      title: loc("panel.security", "Sicherheit"),
+      sub: loc("ui.panel.lovelace.strategy.security.activity", "Aktivität") + " · letzte 24 Stunden",
+      icon: "mdi:shield-home", width: 560,
+    });
+    if (hasPanel) {
+      pop.addAction("mdi:open-in-new", "Seite „Sicherheit“ öffnen", () => { pop.close(); prismNavigate("/security"); });
+    }
+    pop.body.innerHTML = `<div class="pp-log"><div class="pp-wait"><span class="pp-spin"></span></div></div>`;
+    try {
+      const helpers = await window.loadCardHelpers();
+      if (!pop.open) return;
+      const card = helpers.createCardElement({ type: "logbook", target: { entity_id: ids }, hours_to_show: 24 });
+      card.layout = "panel";
+      card.hass = hass;
+      pop.card = card;
+      pop.body.querySelector(".pp-log").replaceChildren(card);
+    } catch (e) {
+      console.error("[prism-cards] Sicherheitsverlauf", e);
+      pop.close();
+      if (hasPanel) prismNavigate("/security");
+      else this._toast("Der Sicherheitsverlauf konnte nicht geladen werden.");
+    }
+  }
+
+  /* ---------- Videoclip zum Ereignis ---------- */
+  _browse(id) {
+    return this._hass.callWS({ type: "media_source/browse_media", media_content_id: id });
+  }
+  /* Ordner der Kamera in der gewünschten Auflösung; „sub" ist „Low resolution" */
+  async _clipFolder() {
+    if (this._clipDir) return this._clipDir;
+    const cfg = this._config, hass = this._hass;
+    const root = await this._browse("media-source://reolink");
+    const cams = (root.children || []).filter((c) => c.can_expand);
+    const dev = (id) => (hass.entities && hass.entities[id] && hass.entities[id].device_id) || null;
+    const mine = dev(cfg.camera);
+    const cam = cams.find((c) => (c.thumbnail || "").split("?")[0].endsWith("/" + cfg.camera))
+      || cams.find((c) => mine && dev((c.thumbnail || "").split("?")[0].split("/").pop()) === mine)
+      || (cams.length === 1 ? cams[0] : null);
+    if (!cam) throw new Error("Diese Kamera hat unter Medien → Reolink keine Aufnahmen.");
+    const res = await this._browse(cam.media_content_id);
+    const kids = res.children || [];
+    const isDay = (c) => /^\d{4}\D\d{1,2}\D\d{1,2}$/.test(c.title || "");
+    if (kids.some(isDay)) { this._clipDir = cam.media_content_id; return this._clipDir; }
+    const want = cfg.clip_resolution === "main" ? "main" : "sub";
+    const dir = kids.find((c) => String(c.media_content_id).endsWith("|" + want))
+      || kids.find((c) => (want === "main" ? /high|hoch/i : /low|niedrig/i).test(c.title || ""))
+      || kids[0];
+    if (!dir) throw new Error("Unter Medien → Reolink liegt für diese Kamera kein Ordner.");
+    this._clipDir = dir.media_content_id;
+    return this._clipDir;
+  }
+  /* Alle Clips eines Tages; w ist die Wanduhr der Kamera als Pseudo-UTC */
+  async _clipsOfDay(w) {
+    const d = new Date(w);
+    const y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, day = d.getUTCDate();
+    const key = y + "-" + mo + "-" + day;
+    this._clipDays = this._clipDays || {};
+    const hit = this._clipDays[key];
+    if (hit && Date.now() - hit.ts < 30 * 1000) return hit.list;
+    const days = await this._browse(await this._clipFolder());
+    const folder = (days.children || []).find((c) => {
+      const m = /^(\d{4})\D(\d{1,2})\D(\d{1,2})$/.exec(c.title || "");
+      return m && +m[1] === y && +m[2] === mo && +m[3] === day;
+    });
+    let list = [];
+    if (folder) {
+      const files = await this._browse(folder.media_content_id);
+      list = (files.children || []).map((c) => {
+        const m = /\|(\d{14})\|(\d{14})$/.exec(String(c.media_content_id));
+        return m && c.can_play ? { id: c.media_content_id, title: c.title || "", a: camStamp(m[1]), b: camStamp(m[2]) } : null;
+      }).filter(Boolean);
+    }
+    this._clipDays[key] = { ts: Date.now(), list };
+    return list;
+  }
+  async _findClip(t) {
+    const w = camWall(t, this._hass.config && this._hass.config.time_zone);
+    let clip = camPickClip(await this._clipsOfDay(w), w);
+    /* Kurz nach Mitternacht liegt der Clip noch im Ordner des Vortags */
+    if (!clip && w % 86400000 < 10 * 60 * 1000) clip = camPickClip(await this._clipsOfDay(w - 86400000), w);
+    return clip ? Object.assign({ w }, clip) : null;
+  }
+
+  async _openClip(ev) {
+    const k = CAM_KIND[ev.kind] || CAM_KIND.other;
+    const when = new Date(ev.t).toLocaleString(PRISM_LOCALE, {
+      weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const pop = this._newPop({ title: k.word, sub: ev.cam + " · " + when, icon: k.icon, color: k.color });
+    pop.body.innerHTML = `<div class="pp-stage"><div class="pp-msg"><span class="pp-spin"></span>
+      <span>Clip wird gesucht …</span></div></div><div class="pp-ft"></div>`;
+    try {
+      const clip = await this._findClip(ev.t);
+      if (!pop.open) return;
+      if (!clip) { this._clipMissing(pop, ev); return; }
+      const media = await this._hass.callWS({ type: "media_source/resolve_media", media_content_id: clip.id });
+      if (!pop.open) return;
+      this._playClip(pop, media, clip, ev);
+    } catch (e) {
+      console.error("[prism-cards] Clip", e);
+      if (pop.open) this._clipMissing(pop, ev, String((e && e.message) || e));
+    }
+  }
+
+  _clipMissing(pop, ev, err) {
+    const stage = pop.body.querySelector(".pp-stage");
+    stage.innerHTML = `<div class="pp-msg">
+      <ha-icon icon="mdi:video-off-outline"></ha-icon>
+      <b>${err ? "Der Clip lässt sich nicht laden" : "Kein Clip zu diesem Ereignis"}</b>
+      <span>${esc(err || "Die Kamera hat dazu nichts gespeichert — oder die Aufnahme läuft noch. Ein Clip erscheint erst, wenn er abgeschlossen ist.")}</span>
+      <div class="pp-row">
+        <button class="pp-pill" type="button" data-a="retry">Erneut suchen</button>
+        <button class="pp-pill" type="button" data-a="live">Live-Bild</button>
+      </div></div>`;
+    stage.querySelector('[data-a="retry"]').addEventListener("click", () => {
+      this._clipDays = null;
+      this._openClip(ev);
+    });
+    stage.querySelector('[data-a="live"]').addEventListener("click", () => {
+      pop.close();
+      this._moreInfo(this._config.camera);
+    });
+  }
+
+  _playClip(pop, media, clip, ev) {
+    const hass = this._hass;
+    const stage = pop.body.querySelector(".pp-stage");
+    const url = hass.hassUrl ? hass.hassUrl(media.url) : media.url;
+    const hm = (ms) => new Date(ms).toLocaleTimeString(PRISM_LOCALE, { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    /* „Motion Vehicle Person" — die Kamera schreibt ihre Auslöser in den Titel */
+    const tags = clip.title.replace(/^[\d:\s]+/, "").trim();
+    pop.body.querySelector(".pp-ft").innerHTML =
+      `<span><b>${esc(hm(clip.a))}</b> – ${esc(hm(clip.b))}</span><span>${esc(camDuration(clip.b - clip.a))}</span>${
+        tags ? `<span>${esc(tags)}</span>` : ""}`;
+
+    const video = document.createElement("video");
+    const hls = /mpegurl/i.test(media.mime_type || "");
+    if (hls && !video.canPlayType("application/vnd.apple.mpegurl") && customElements.get("ha-hls-player")) {
+      const player = document.createElement("ha-hls-player");
+      player.hass = hass; player.url = media.url;
+      player.controls = true; player.autoPlay = true; player.playsInline = true;
+      stage.replaceChildren(player);
+      return;
+    }
+    const wait = document.createElement("div");
+    wait.className = "pp-wait";
+    wait.innerHTML = `<span class="pp-spin"></span>`;
+    video.controls = true; video.playsInline = true; video.autoplay = true; video.preload = "auto";
+    const ready = () => wait.remove();
+    /* Die Bühne nimmt das Seitenverhältnis des Clips an — keine schwarzen Balken */
+    video.addEventListener("loadedmetadata", () => {
+      if (video.videoWidth && video.videoHeight) stage.style.aspectRatio = video.videoWidth + " / " + video.videoHeight;
+    });
+    ["loadeddata", "playing"].forEach((n) => video.addEventListener(n, ready, { once: true }));
+    /* Liegt das Ereignis weit hinten in einem langen Clip, dorthin springen */
+    const offset = Math.round((clip.w - clip.a) / 1000) - 5;
+    if (offset > 15) {
+      video.addEventListener("loadedmetadata", () => {
+        try { if (isFinite(video.duration) && offset < video.duration - 2) video.currentTime = offset; } catch (e) { /* egal */ }
+      }, { once: true });
+    }
+    const start = () => {
+      const p = video.play();
+      /* Ohne frische Nutzergeste verweigern Browser Ton — dann stumm starten */
+      if (p && p.catch) p.catch(() => { video.muted = true; const q = video.play(); if (q && q.catch) q.catch(() => {}); });
+    };
+    let blobUrl = null;
+    pop.cleanup.push(() => {
+      try { video.pause(); video.removeAttribute("src"); video.load(); } catch (e) { /* egal */ }
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    });
+    video.addEventListener("error", async () => {
+      if (!pop.open) return;
+      /* Der Abruf liefert den Clip am Stück, ohne Teilabrufe. Manche Browser
+         spielen das nicht direkt ab — dann ganz laden und lokal abspielen. */
+      if (!blobUrl) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const blob = await r.blob();
+          if (!pop.open) return;
+          blobUrl = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type: "video/mp4" }));
+          video.src = blobUrl;
+          start();
+          return;
+        } catch (e) { /* fällt auf die Meldung unten durch */ }
+      }
+      this._clipMissing(pop, ev, "Der Browser kann dieses Video nicht abspielen.");
+    });
+    video.src = url;
+    stage.replaceChildren(video, wait);
+    start();
   }
 }
 
@@ -5946,10 +6392,17 @@ register("prism-camera-card", PrismCameraCard, {
   { name: "max", selector: { number: { min: 1, max: 100, mode: "box" } } },
   { name: "hours", selector: { number: { min: 1, max: 168, mode: "box", unit_of_measurement: "h" } } },
   { name: "refresh_interval", selector: { number: { min: 2, max: 300, mode: "box", unit_of_measurement: "s" } } },
+  { name: "clip_resolution", selector: { select: { mode: "dropdown", options: [
+    { value: "sub", label: "Niedrige Auflösung — lädt schnell (Standard)" },
+    { value: "main", label: "Hohe Auflösung" },
+  ] } } },
+  { name: "tap_action", selector: { ui_action: {} } },
 ], {
   title: "Titel",
   subtitle: "Zusatzzeile (leer = wird erzeugt)",
   icon: "Icon im Kopf",
+  clip_resolution: "Videoclip beim Tipp auf ein Ereignis (Reolink)",
+  tap_action: "Aktion beim Klick auf den Titel (leer = Sicherheitsverlauf)",
   camera: "Kamera der Türklingel (Pflicht)",
   name: "Beschriftung im Bild",
   ring_entity: "Klingeltaste — schaltet die Plakette „Es klingelt“",

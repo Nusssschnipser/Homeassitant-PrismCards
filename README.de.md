@@ -4,7 +4,7 @@
 
 Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprache, eine gemeinsame Größenskala, keine Abhängigkeiten und kein Build-Schritt — eine einzige JavaScript-Datei.
 
-![Version](https://img.shields.io/badge/version-v54-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
+![Version](https://img.shields.io/badge/version-v55-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
 
 ---
 
@@ -21,7 +21,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 
 1. `dist/prism-cards.js` nach `/config/www/prism-cards.js` kopieren.
 2. **Einstellungen → Dashboards → Ressourcen → Ressource hinzufügen**:
-   - URL: `/local/prism-cards.js?v=54`
+   - URL: `/local/prism-cards.js?v=55`
    - Typ: JavaScript-Modul
 3. Seite mit Strg+Umschalt+R neu laden.
 
@@ -29,7 +29,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 > Aktualisierung hoch — sonst zeigt der Cache die alte Fassung.
 
 **Version prüfen:** In der Browser-Konsole erscheint beim Laden eine Zeile wie
-`PRISM-CARDS v54 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
+`PRISM-CARDS v55 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
 `PRISM_VERSION` eingeben.
 
 **Schriften (optional):** Die Karten laden ihre Schriften seit v54 nicht mehr
@@ -37,6 +37,16 @@ von Google, sondern lokal. Den Ordner `fonts/` nach `/config/www/prism-fonts/`
 kopieren — die Karten suchen `/local/prism-fonts/prism-fonts.css`. Fehlt der
 Ordner, greift die Schrift von Home Assistant. Ein anderer Ort lässt sich über
 `window.PRISM_FONTS_URL` setzen.
+
+### Neu in v55 — Kamera-Karte: Clips und Sicherheitsverlauf
+
+- Ein Tipp auf ein Ereignis („Bewegung erkannt“ …) öffnet den passenden
+  Videoclip in einem Popup. Die Clips kommen aus **Medien → Reolink**;
+  `clip_resolution: main` wählt die hohe statt der niedrigen Auflösung,
+  `clips: false` stellt den früheren Info-Dialog wieder her.
+- Ein Tipp auf den Titel öffnet den Sicherheitsverlauf — dieselbe
+  Aktivitätsliste wie auf der Seite „Sicherheit“ von Home Assistant.
+  Eine eigene `tap_action` hat Vorrang, `action: none` schaltet den Kopf stumm.
 
 ### Neu in v54 — Bedienbarkeit
 

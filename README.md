@@ -2,7 +2,7 @@
 
 A set of 18 Lovelace cards for Home Assistant. One shared visual language, one shared type scale, no dependencies, no build step — a single JavaScript file.
 
-![Version](https://img.shields.io/badge/version-v54-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-v55-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Language note:** the card interface is currently **German only** — status words,
 > labels, weekdays and the visual editor. The code is fully functional in any
@@ -26,7 +26,7 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 
 1. Copy `dist/prism-cards.js` to `/config/www/prism-cards.js`.
 2. **Settings → Dashboards → Resources → Add resource**:
-   - URL: `/local/prism-cards.js?v=54`
+   - URL: `/local/prism-cards.js?v=55`
    - Type: JavaScript module
 3. Hard-reload the page (Ctrl+Shift+R).
 
@@ -34,13 +34,22 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 > every update — otherwise the cache keeps serving the old version.
 
 **Check which version is loaded:** the browser console prints a line on load,
-`PRISM-CARDS v54 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
+`PRISM-CARDS v55 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
 `PRISM_VERSION` in the console.
 
 **Fonts (optional):** Since v54 the cards load their fonts locally instead of
 from Google. Copy the `fonts/` folder to `/config/www/prism-fonts/` — the cards
 look for `/local/prism-fonts/prism-fonts.css`. Without it they fall back to the
 Home Assistant font. Set `window.PRISM_FONTS_URL` to use another location.
+
+### New in v55 — camera card: clips and security activity
+
+- Tapping an event opens the matching video clip in a popup. Clips come from
+  **Media → Reolink**; `clip_resolution: main` picks high instead of low
+  resolution, `clips: false` restores the previous more-info dialog.
+- Tapping the title opens the security activity — the same list Home
+  Assistant shows on its Security page. A custom `tap_action` takes
+  precedence, `action: none` disables the header.
 
 ### New in v54 — usability
 
