@@ -4,7 +4,7 @@
 
 Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprache, eine gemeinsame Größenskala, keine Abhängigkeiten und kein Build-Schritt — eine einzige JavaScript-Datei.
 
-![Version](https://img.shields.io/badge/version-v53-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
+![Version](https://img.shields.io/badge/version-v54-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
 
 ---
 
@@ -21,7 +21,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 
 1. `dist/prism-cards.js` nach `/config/www/prism-cards.js` kopieren.
 2. **Einstellungen → Dashboards → Ressourcen → Ressource hinzufügen**:
-   - URL: `/local/prism-cards.js?v=53`
+   - URL: `/local/prism-cards.js?v=54`
    - Typ: JavaScript-Modul
 3. Seite mit Strg+Umschalt+R neu laden.
 
@@ -29,8 +29,33 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 > Aktualisierung hoch — sonst zeigt der Cache die alte Fassung.
 
 **Version prüfen:** In der Browser-Konsole erscheint beim Laden eine Zeile wie
-`PRISM-CARDS v53 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
+`PRISM-CARDS v54 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
 `PRISM_VERSION` eingeben.
+
+**Schriften (optional):** Die Karten laden ihre Schriften seit v54 nicht mehr
+von Google, sondern lokal. Den Ordner `fonts/` nach `/config/www/prism-fonts/`
+kopieren — die Karten suchen `/local/prism-fonts/prism-fonts.css`. Fehlt der
+Ordner, greift die Schrift von Home Assistant. Ein anderer Ort lässt sich über
+`window.PRISM_FONTS_URL` setzen.
+
+### Neu in v54 — Bedienbarkeit
+
+- Keine Schrift unter 10 px, Nebentexte mit mehr Kontrast; dunkel auslaufende
+  Verläufe bekommen helle Schrift.
+- Größere Tippflächen, Gedrückt-Zustand, Fokusrahmen, Bedienung per Tastatur.
+- Der Pfeil im Kopf erscheint nur, wenn ein Tipp etwas auslöst. Ohne
+  `tap_action` öffnet der Kopf den Info-Dialog; langes Drücken nutzt
+  `hold_action`.
+- Rückfrage vor dem Raumstart (`confirm_start: false` schaltet ab) und vor dem
+  Wechsel des Lademodus (`confirm_mode: false`).
+- Fehler in einer Karte werden angezeigt; fehlende Entitäten melden sich mit
+  einem Warnzeichen in der Kartenecke.
+- Kalender und Systemkarte scrollen statt abzuschneiden; Mini-Kacheln zeigen
+  ihren Namen und „Fällig" statt Minuswerten (`overdue_text`, `allow_negative`).
+- Verbraucherkarte blendet Geräte ohne Last aus (`hide_idle: false` zeigt sie).
+- Kartenfarben folgen nicht mehr den allgemeinen Theme-Farben; ein Theme kann
+  jeden Ton über `--prism-theme-<name>` setzen.
+- Zahlen- und Datumsformat folgen der Sprache des Benutzers.
 
 ---
 

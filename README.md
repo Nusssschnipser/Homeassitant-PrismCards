@@ -2,7 +2,7 @@
 
 A set of 18 Lovelace cards for Home Assistant. One shared visual language, one shared type scale, no dependencies, no build step — a single JavaScript file.
 
-![Version](https://img.shields.io/badge/version-v53-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-v54-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Language note:** the card interface is currently **German only** — status words,
 > labels, weekdays and the visual editor. The code is fully functional in any
@@ -26,7 +26,7 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 
 1. Copy `dist/prism-cards.js` to `/config/www/prism-cards.js`.
 2. **Settings → Dashboards → Resources → Add resource**:
-   - URL: `/local/prism-cards.js?v=53`
+   - URL: `/local/prism-cards.js?v=54`
    - Type: JavaScript module
 3. Hard-reload the page (Ctrl+Shift+R).
 
@@ -34,8 +34,32 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 > every update — otherwise the cache keeps serving the old version.
 
 **Check which version is loaded:** the browser console prints a line on load,
-`PRISM-CARDS v53 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
+`PRISM-CARDS v54 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
 `PRISM_VERSION` in the console.
+
+**Fonts (optional):** Since v54 the cards load their fonts locally instead of
+from Google. Copy the `fonts/` folder to `/config/www/prism-fonts/` — the cards
+look for `/local/prism-fonts/prism-fonts.css`. Without it they fall back to the
+Home Assistant font. Set `window.PRISM_FONTS_URL` to use another location.
+
+### New in v54 — usability
+
+- No type below 10 px, stronger contrast for secondary text; gradients that end
+  dark get light text.
+- Larger tap targets, pressed state, focus ring, keyboard operation.
+- The header chevron only appears when a tap does something. Without
+  `tap_action` the header opens the more-info dialog; a long press uses
+  `hold_action`.
+- Confirmation before starting a room clean (`confirm_start: false` turns it
+  off) and before changing the charge mode (`confirm_mode: false`).
+- A failing card shows its error; missing entities raise a warning badge in the
+  card corner.
+- Calendar and system card scroll instead of clipping; mini cards show their
+  name and "Fällig" instead of negative values (`overdue_text`, `allow_negative`).
+- The consumers card hides idle devices (`hide_idle: false` shows them).
+- Card colours no longer follow generic theme colours; a theme can set each tone
+  through `--prism-theme-<name>`.
+- Number and date formats follow the user's language.
 
 ---
 

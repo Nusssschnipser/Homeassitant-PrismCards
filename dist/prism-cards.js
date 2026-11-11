@@ -69,7 +69,9 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v53";
+const PRISM_VERSION = "v54";
+/* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
+let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
 window.PRISM_VERSION = PRISM_VERSION;
 
@@ -79,7 +81,9 @@ try {
     const l = document.createElement("link");
     l.id = "prism-cards-fonts";
     l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&family=Orbitron:wght@600;900&display=swap";
+    /* Lokal ausgeliefert: kein Abruf bei Google, funktioniert auch ohne Internet.
+       Anderer Ort: window.PRISM_FONTS_URL vor dem Laden der Karten setzen. */
+    l.href = window.PRISM_FONTS_URL || "/local/prism-fonts/prism-fonts.css";
     document.head.appendChild(l);
   }
 } catch (e) { /* offline oder gesperrt */ }
@@ -103,11 +107,11 @@ const uom = (hass, id, def) =>
   (id && hass.states[id] && hass.states[id].attributes.unit_of_measurement) || def;
 
 const fmt = (v, d = 1) => (v === null || v === undefined || isNaN(v)) ? "–" :
-  Number(v).toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d });
+  Number(v).toLocaleString(PRISM_LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmt0 = (v) => (v === null || v === undefined || isNaN(v)) ? "–" :
-  Number(v).toLocaleString("de-DE", { maximumFractionDigits: 0 });
+  Number(v).toLocaleString(PRISM_LOCALE, { maximumFractionDigits: 0 });
 const fmt1 = (v) => (v === null || v === undefined || isNaN(v)) ? "–" :
-  Number(v).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  Number(v).toLocaleString(PRISM_LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const mmss = (sec) => {
   if (sec === null || sec === undefined || isNaN(sec) || sec < 0) return "–";
@@ -309,19 +313,21 @@ const TONES = {
 };
 
 const ROOT_TOKENS = `
-  /* Basis — greift Theme-Variablen ab, sonst Fallback */
-  --prism-amber:   var(--state-light-active-color, #FFC24B);
-  --prism-gold:    var(--warning-color, #FBBF24);
-  --prism-rose:    var(--error-color, #FF6B6B);
-  --prism-red:     var(--label-badge-red, #EF4444);
-  --prism-magenta: var(--energy-grid-return-color, #C13584);
-  --prism-teal:    var(--state-climate-cool-color, #5EEAD4);
-  --prism-blue:    var(--info-color, #3B82F6);
-  --prism-cyan:    var(--energy-battery-in-color, #22D3EE);
-  --prism-indigo:  var(--accent-color, #6366F1);
-  --prism-violet:  var(--state-media_player-active-color, #A78BFA);
-  --prism-lime:    var(--energy-solar-color, #D9F99D);
-  --prism-green:   var(--success-color, #34D399);
+  /* Basis — feste Palette. Ein Theme kann jeden Ton gezielt über
+     --prism-theme-<name> ersetzen; allgemeine HA-Farben (Fehler, Warnung …)
+     färben die Karten nicht mehr um. */
+  --prism-amber: var(--prism-theme-amber, #FFC24B);
+  --prism-gold: var(--prism-theme-gold, #FBBF24);
+  --prism-rose: var(--prism-theme-rose, #FF6B6B);
+  --prism-red: var(--prism-theme-red, #EF4444);
+  --prism-magenta: var(--prism-theme-magenta, #C13584);
+  --prism-teal: var(--prism-theme-teal, #5EEAD4);
+  --prism-blue: var(--prism-theme-blue, #3B82F6);
+  --prism-cyan: var(--prism-theme-cyan, #22D3EE);
+  --prism-indigo: var(--prism-theme-indigo, #6366F1);
+  --prism-violet: var(--prism-theme-violet, #A78BFA);
+  --prism-lime: var(--prism-theme-lime, #D9F99D);
+  --prism-green: var(--prism-theme-green, #34D399);
   /* Erweiterung — feste Töne der Sammlung */
   --prism-olive:   #C3D186;  --prism-moss:     #4E6B2F;
   --prism-coral:   #FF8A5B;  --prism-berry:    #C81E6B;
@@ -369,13 +375,13 @@ const BASE_CSS = `
   --p-gap:clamp(5px,  calc(var(--u) * 0.144), 14px);
   /* Schriftskala: neue Karten verwenden diese Marken statt eigener Werte */
   --t-title: clamp(14px,  calc(var(--u) * 0.336), 22px);
-  --t-state: clamp(9px,   calc(var(--u) * 0.192), 12.5px);
+  --t-state: clamp(10.5px,   calc(var(--u) * 0.192), 12.5px);
   --t-hero:  clamp(24px,calc(var(--u) * 1.173),62.1px);
   --t-big:   clamp(18px,calc(var(--u) * 0.759),39.1px);
   --t-value: clamp(11px,calc(var(--u) * 0.4),25.3px);
-  --t-body:  clamp(9.5px, calc(var(--u) * 0.21),  14px);
-  --t-label: clamp(7.5px, calc(var(--u) * 0.13),  11.5px);
-  --t-micro: clamp(7px,   calc(var(--u) * 0.115), 10.5px);
+  --t-body:  clamp(11px, calc(var(--u) * 0.21),  14px);
+  --t-label: clamp(10px, calc(var(--u) * 0.13),  11.5px);
+  --t-micro: clamp(10px,   calc(var(--u) * 0.115), 10.5px);
 
   position:relative; isolation:isolate; overflow:hidden;
   max-width:100%; min-width:0;
@@ -432,7 +438,7 @@ const BASE_CSS = `
 .soc{cursor:pointer}
 .soc .lg{
   display:flex; align-items:baseline; justify-content:space-between; gap:1em;
-  font-size:clamp(9.5px,calc(var(--u) * 0.144),12.5px); margin-bottom:.45em;
+  font-size:clamp(10px,calc(var(--u) * 0.144),12.5px); margin-bottom:.45em;
 }
 .soc .lg .k{opacity:.75; font-weight:600}
 .soc .lg .v{font-family:var(--p-mono); font-weight:700; font-size:clamp(13px,calc(var(--u) * 0.4),21.8px); letter-spacing:-.02em}
@@ -450,7 +456,7 @@ const BASE_CSS = `
   position:absolute; top:-2px; bottom:-2px; width:2px; border-radius:2px;
   background:rgba(11,10,20,.55); transform:translateX(-1px);
 }
-.soc .mk{display:flex; justify-content:space-between; font-size:clamp(8.5px,calc(var(--u) * 0.132),11px); opacity:.62; margin-top:.4em}
+.soc .mk{display:flex; justify-content:space-between; font-size:clamp(10px,calc(var(--u) * 0.132),11px); opacity:.62; margin-top:.4em}
 @media (prefers-reduced-motion: reduce){.soc .tr i{transition:none}}
 
 /* ---------- Hintergrund ---------- */
@@ -470,8 +476,8 @@ const BASE_CSS = `
 .card.quiet .wash{background:var(--ha-card-background, var(--card-background-color, #16181F))}
 .card.quiet .rise,.card.quiet .gloss{display:none}
 .cover{position:absolute; inset:0; z-index:-3; background-size:cover; background-position:center}
-.scrim{position:absolute; inset:0; z-index:-2; background:linear-gradient(180deg, rgba(6,6,12,.20) 0%, rgba(6,6,12,.84) 100%)}
-.on-cover{color:#fff}
+.scrim{position:absolute; inset:0; z-index:-2; background:linear-gradient(180deg, rgba(6,6,12,.46) 0%, rgba(6,6,12,.62) 38%, rgba(6,6,12,.9) 100%)}
+.on-cover{color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.55)}
 
 /* ---------- Kopf ---------- */
 .top{display:flex; align-items:center; gap:clamp(7px,calc(var(--u) * 0.168),12px); cursor:pointer}
@@ -492,7 +498,7 @@ const BASE_CSS = `
 }
 .state{
   display:block; font-family:var(--p-mono); font-weight:700;
-  font-size:clamp(9px,calc(var(--u) * 0.192),12.5px); letter-spacing:.1em; text-transform:uppercase;
+  font-size:clamp(10px,calc(var(--u) * 0.192),12.5px); letter-spacing:.1em; text-transform:uppercase;
   opacity:.7; white-space:nowrap; margin-top:.25em;
 }
 .go{opacity:.45; --mdc-icon-size:clamp(15px,calc(var(--u) * 0.3),20px); flex:none}
@@ -514,7 +520,7 @@ const BASE_CSS = `
 .chips{display:flex; flex-wrap:wrap; gap:clamp(4px,calc(var(--u) * 0.108),7px); overflow:hidden; max-height:2.4em; margin-top:.55em}
 .chip{
   display:inline-flex; align-items:center; gap:.4em;
-  font-size:clamp(9.5px,calc(var(--u) * 0.192),12px); font-weight:600; line-height:1;
+  font-size:clamp(10px,calc(var(--u) * 0.192),12px); font-weight:600; line-height:1;
   padding:.5em .7em; border-radius:999px; white-space:nowrap;
   background:rgba(11,10,20,.18);
 }
@@ -552,11 +558,13 @@ const BASE_CSS = `
 .graph .use{stroke:rgba(11,10,20,.45); stroke-width:2; stroke-dasharray:3 4}
 .card.quiet .graph .ln,.card.quiet .graph .use{stroke:var(--secondary-text-color)}
 .card.quiet .graph .ar{fill:rgba(127,127,127,.18)}
-.glabel{display:flex; justify-content:space-between; font-family:var(--p-mono); font-size:clamp(8.5px,calc(var(--u) * 0.168),11px); opacity:.6}
+.glabel{display:flex; justify-content:space-between; font-family:var(--p-mono); font-size:clamp(10px,calc(var(--u) * 0.168),11px); opacity:.6}
 .empty{font-size:clamp(10px,calc(var(--u) * 0.204),13px); opacity:.6; margin:auto}
 
 /* ---------- Mini-Karte ---------- */
-.mini{display:flex; flex-direction:column; height:100%; gap:.35em}
+.mini{display:flex; flex-direction:column; height:100%; gap:.3em; min-height:0}
+/* Viertelkarten haben wenig Fläche — der Rand schrumpft mit */
+.card:has(> .zb > .mini),.card:has(> .zb > .v-l){--p-pad:clamp(8px, calc(var(--u) * 0.22), 16px)}
 .mini.center{align-items:center; justify-content:center; text-align:center; gap:.5em}
 .mini.nav{align-items:center; text-align:center}
 .mini.nav .nm{white-space:normal; overflow:visible; line-height:1.2}
@@ -567,12 +575,12 @@ const BASE_CSS = `
 .mini .hero ha-icon{--mdc-icon-size:min(calc(var(--u) * 3.48), 100%); width:auto; height:auto}
 .mini .sp{flex:1 1 auto; min-height:0}
 .mini .ic{
-  width:clamp(26px,calc(var(--u) * 1.56),46px); height:clamp(26px,calc(var(--u) * 1.56),46px); flex:none;
+  width:clamp(24px,calc(var(--u) * 0.95),34px); height:clamp(24px,calc(var(--u) * 0.95),34px); flex:none;
   border-radius:calc(var(--p-radius) * .4);
   background:rgba(255,255,255,.30); display:grid; place-items:center;
 }
 .card.quiet .mini .ic{background:rgba(127,127,127,.16)}
-.mini .ic ha-icon{--mdc-icon-size:clamp(16px,calc(var(--u) * 0.9),27px)}
+.mini .ic ha-icon{--mdc-icon-size:clamp(15px,calc(var(--u) * 0.56),21px)}
 .mini.center .ic{width:clamp(30px,calc(var(--u) * 1.8),54px); height:clamp(30px,calc(var(--u) * 1.8),54px)}
 .mini .nm{
   font-family:var(--p-display); font-weight:700; letter-spacing:-.015em; line-height:1.15;
@@ -583,19 +591,19 @@ const BASE_CSS = `
 .mini .vl{
   font-family:var(--p-mono); font-weight:700; font-variant-numeric:tabular-nums;
   letter-spacing:-.03em; line-height:1;
-  font-size:clamp(17px,calc(var(--u) * 1.173),36.8px);
-  display:flex; align-items:baseline; gap:.14em; min-width:0;
+  font-size:clamp(16px,calc(var(--u) * 0.8),30px);
+  display:flex; align-items:baseline; gap:.14em; min-width:0; flex:none;
 }
 .mini .vl span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .mini .vl small{font-size:.44em; font-weight:500; opacity:.72}
 .mini .vl.txt{font-family:var(--p-display); font-size:clamp(13px,calc(var(--u) * 0.828),25.3px); letter-spacing:-.02em}
-.mini .sc{font-size:clamp(9px,calc(var(--u) * 0.39),12px); opacity:.72; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.mini .bg{font-family:var(--p-display); font-weight:800; letter-spacing:-.02em; line-height:1; font-size:clamp(14px,calc(var(--u) * 0.897),25.3px)}
+.mini .sc{font-size:clamp(10.5px,calc(var(--u) * 0.36),12.5px); font-weight:600; opacity:.72; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:none; line-height:1.25}
+.mini .bg{font-family:var(--p-display); font-weight:800; letter-spacing:-.02em; line-height:1; font-size:clamp(14px,calc(var(--u) * 0.7),22px); flex:none}
 .mini .hd{display:flex; align-items:center; gap:.45em; min-width:0}
 .mini .hd .dt{width:clamp(5px,calc(var(--u) * 0.18),7px); aspect-ratio:1; border-radius:50%; background:rgba(11,10,20,.6); flex:none}
 .card.quiet .mini .hd .dt{background:var(--secondary-text-color)}
 .mini .hd .lb{
-  font-family:var(--p-mono); font-weight:700; font-size:clamp(8px,calc(var(--u) * 0.324),10.5px);
+  font-family:var(--p-mono); font-weight:700; font-size:clamp(10px,calc(var(--u) * 0.324),10.5px);
   letter-spacing:.1em; text-transform:uppercase; opacity:.72;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
@@ -623,7 +631,7 @@ const BASE_CSS = `
 .card.quiet .mini .phase .dt{background:var(--secondary-text-color); animation:none}
 .mini .phase .lb{
   font-family:var(--p-mono); font-weight:700; letter-spacing:.1em; text-transform:uppercase;
-  font-size:clamp(8px,calc(var(--u) * 0.324),10.5px); opacity:.72;
+  font-size:clamp(10px,calc(var(--u) * 0.324),10.5px); opacity:.72;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .rgw{position:relative; flex:1 1 auto; min-height:0; display:grid; place-items:center; margin-top:.25em}
@@ -639,7 +647,7 @@ const BASE_CSS = `
   letter-spacing:-.04em; font-size:clamp(15px,calc(var(--u) * 1.173),34.5px);
 }
 .rgc .t small{font-size:.42em; font-weight:500; opacity:.72; margin-left:.12em}
-.rgc .p{font-family:var(--p-mono); font-size:clamp(8px,calc(var(--u) * 0.336),11px); opacity:.62; margin-top:.35em}
+.rgc .p{font-family:var(--p-mono); font-size:clamp(10px,calc(var(--u) * 0.336),11px); opacity:.62; margin-top:.35em}
 /* Sehr schmale Kachel: Prozentwert weicht, die Zahl bleibt lesbar */
 @container (max-width: 118px){ .rgc .p{display:none} }
 
@@ -647,7 +655,7 @@ const BASE_CSS = `
 .acts{display:flex; flex-wrap:wrap; gap:clamp(4px,calc(var(--u) * 0.108),7px)}
 .act{
   display:inline-flex; align-items:center; gap:.4em; cursor:pointer;
-  font-size:clamp(9.5px,calc(var(--u) * 0.192),12px); font-weight:600; line-height:1;
+  font-size:clamp(10px,calc(var(--u) * 0.192),12px); font-weight:600; line-height:1;
   padding:.55em .75em; border-radius:999px;
   background:rgba(11,10,20,.16); border:1px solid transparent;
   transition:background .18s, border-color .18s;
@@ -663,7 +671,7 @@ const BASE_CSS = `
 .bar{height:4px; border-radius:999px; background:rgba(11,10,20,.22); overflow:hidden}
 .on-cover .bar{background:rgba(255,255,255,.26)}
 .bar i{display:block; height:100%; border-radius:999px; background:currentColor; opacity:.9}
-.times{display:flex; justify-content:space-between; font-family:var(--p-mono); font-size:clamp(8.5px,calc(var(--u) * 0.168),11px); opacity:.75; margin-top:.35em}
+.times{display:flex; justify-content:space-between; font-family:var(--p-mono); font-size:clamp(10px,calc(var(--u) * 0.168),11px); opacity:.75; margin-top:.35em}
 .ctrl{display:flex; align-items:center; gap:clamp(6px,calc(var(--u) * 0.18),14px); margin-top:.6em}
 .ctrl .btn{cursor:pointer; opacity:.85; --mdc-icon-size:clamp(17px,calc(var(--u) * 0.39),24px)}
 .ctrl .btn:hover{opacity:1}
@@ -691,11 +699,127 @@ const BASE_CSS = `
   .rise,.soc .tr i{transition:none}
   .blink{animation:none}
 }
+
+/* ---------- Lesbarkeit ---------- */
+.state{opacity:.84}
+.sub{opacity:.86}
+.glabel,.times{opacity:.82}
+.soc .mk{opacity:.8}
+.rgc .p{opacity:.8}
+.mini .sc,.mini .hd .lb,.mini .phase .lb{opacity:.86}
+.rw .k{opacity:.88}
+.rw.mute{opacity:.72}
+.empty{opacity:.78}
+
+/* Dunkel auslaufende Verläufe: helle Schrift, Flächen hell statt dunkel getönt */
+.card.inv{color:#F6F8FC}
+.card.inv .wash{background:linear-gradient(rgba(8,8,16,.36),rgba(8,8,16,.36)),linear-gradient(150deg,var(--c1) 0%,var(--c2) 100%)}
+.card.inv .badge,.card.inv .mini .ic{background:rgba(255,255,255,.18)}
+.card.inv .chip,.card.inv .act{background:rgba(255,255,255,.16)}
+.card.inv .chip.hot,.card.inv .act.on{background:rgba(255,255,255,.3)}
+.card.inv .rw{border-bottom-color:rgba(255,255,255,.16)}
+.card.inv .zd{border-left-color:rgba(255,255,255,.18)}
+.card.inv .soc .tr,.card.inv .mini .pb,.card.inv .bar{background:rgba(255,255,255,.2)}
+.card.inv .graph .ln{stroke:rgba(255,255,255,.85)}
+.card.inv .graph .use{stroke:rgba(255,255,255,.6)}
+.card.inv .mini .hd .dt,.card.inv .mini .phase .dt{background:rgba(255,255,255,.8)}
+.card.inv .rgw .tr{stroke:rgba(255,255,255,.2)}
+.card.inv .rgw .pr{stroke:rgba(255,255,255,.9)}
+
+/* ---------- Bedienung ---------- */
+/* Tippflächen: sichtbar größer und zusätzlich ein unsichtbarer Rand,
+   damit der Finger auch knapp daneben noch trifft. */
+.act,.chip[data-mi],.chip.more,#mute{position:relative; min-height:30px; padding:.62em .85em}
+.act::after,.chip[data-mi]::after,.chip.more::after,#mute::after,.ctrl .btn::after{
+  content:""; position:absolute; inset:-7px -3px;
+}
+.chips{max-height:36px}
+.ctrl .btn{position:relative; --mdc-icon-size:clamp(22px,calc(var(--u) * 0.42),28px); padding:4px}
+.pp{width:clamp(38px,calc(var(--u) * 0.78),48px); height:clamp(38px,calc(var(--u) * 0.78),48px)}
+.rw[data-mi]{min-height:28px}
+
+/* Rückmeldung: gedrückt, Tastaturfokus */
+.top.tap,[data-mi],.act,.ctrl .btn,.pp,#mute,.chip.more,.card.tapcard,button{
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+}
+.top.tap:active,[data-mi]:active,.act:active,.ctrl .btn:active,.pp:active,#mute:active,.chip.more:active,button:active:not([disabled]){
+  filter:brightness(.86); transform:scale(.97);
+}
+.card.tapcard:active{filter:brightness(.93)}
+.top.tap,[data-mi],.act,.pp,button{transition:transform .08s ease, filter .08s ease, background .16s}
+:focus{outline:none}
+:focus-visible{outline:2px solid currentColor; outline-offset:2px; border-radius:8px}
+.card.tapcard:focus-visible{outline-offset:-3px; border-radius:var(--p-radius)}
+@media (prefers-reduced-motion: reduce){
+  .top.tap:active,[data-mi]:active,.act:active,.pp:active,button:active{transform:none}
+}
+
+/* Hinweis auf fehlende Entitäten */
+.p-warn{
+  position:absolute; top:6px; right:6px; z-index:9; cursor:pointer;
+  display:inline-flex; align-items:center; gap:.25em;
+  font:700 11px/1 var(--p-mono); padding:.4em .55em; border-radius:999px;
+  background:#B45309; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.p-warn ha-icon{--mdc-icon-size:13px}
+/* Fehlerkarte */
+.p-err{display:flex; flex-direction:column; gap:.5em; font-size:var(--t-body); line-height:1.35}
+.p-err span{font-family:var(--p-mono); opacity:.8; overflow-wrap:anywhere}
+
+/* Listen, die länger sind als die Karte: scrollbar, mit weichem Auslauf */
+.fade-y{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 10px,#000 calc(100% - 22px),transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0,#000 10px,#000 calc(100% - 22px),transparent 100%);
+}
+`;
+
+/* ══════════════════════════════════════════════════════════════
+   Korrekturen nach der größeren Schriftskala — stehen bewusst
+   hinter den Kartenstilen und gelten für alle Karten.
+   ══════════════════════════════════════════════════════════════ */
+const FIX_CSS = `
+/* Läuft Inhalt über, wird unten gekürzt statt oben und unten zugleich */
+.zb,.zd,.sx-rows,.cx-rows,.hz-states{justify-content:safe center}
+.state{overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.lbl{overflow:hidden}
+.rw{padding:clamp(2px,calc(var(--u) * 0.06),5px) 0}
+
+/* Heizung: Bezeichnungen bleiben ausgeschrieben, der Ring behält seinen
+   Platz. Auf einem schmalen Quadrat weicht dafür die Gaszeile — der Wert
+   steht ohnehin in der Energie-Ansicht. */
+.hz-cell{padding:calc(var(--u) * .06) calc(var(--u) * .14)}
+.hz-cell .k{letter-spacing:.03em; line-height:1.15}
+.hz-cell .v{line-height:1.15; font-size:clamp(11.5px,calc(var(--u) * 0.26),18px)}
+.hz-center{min-height:clamp(40px,calc(var(--u) * 1.4),120px)}
+@container (max-width: 240px){
+  .hz-foot{display:none}
+  .hz-body{padding-top:calc(var(--p-pad) * .5); gap:calc(var(--u) * .1)}
+}
+.hz-chip{max-width:48%; min-height:26px; display:inline-flex; align-items:center}
+.hz-foot .v{font-size:clamp(11.5px,calc(var(--u) * 0.2691),19.5px)}
+.hz-state{min-height:24px}
+
+/* Tagesbilanz: Ringe kompakter, Beschriftung daneben */
+.bx-q svg{width:clamp(22px,calc(var(--u) * 0.6),38px); height:clamp(22px,calc(var(--u) * 0.6),38px)}
+.bx-q .t{display:flex; align-items:baseline; gap:.5em; flex-wrap:wrap}
+.bx-q .t span{margin-top:0}
+.bx-sl{opacity:.84; margin-top:.3em}
+.bx-lg{margin-bottom:.3em}
+
+/* Einstellungen: Reihen dürfen schrumpfen, bleiben aber treffbar */
+.sx-seg button{min-height:28px; padding:.55em .2em}
+.sx-rows{gap:calc(var(--p-gap) * .6)}
+
+/* Fahrzeug- und Wallbox-Kacheln */
+.ev-tile .v{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
 `;
 
 /* ══════════════════════════════════════════════════════════════
    Basisklasse
    ══════════════════════════════════════════════════════════════ */
+
+/* Töne, deren Verlauf überwiegend dunkel ausläuft: dort steht helle Schrift */
+const DARK_TONES = new Set(["night", "ocean", "plum", "graphite", "slate", "forest", "crimson"]);
 
 const SQUARE_GRID = { columns: 6, min_columns: 4, rows: "auto" };
 const DOUBLE_GRID = { columns: 12, min_columns: 8, rows: "auto" };
@@ -713,6 +837,8 @@ class PrismCard extends HTMLElement {
   }
   set hass(hass) {
     this._hass = hass;
+    const lang = (hass && hass.locale && hass.locale.language) || (hass && hass.language);
+    if (lang) PRISM_LOCALE = lang;
     if (this.onHass) this.onHass();
     this._render();
   }
@@ -730,11 +856,47 @@ class PrismCard extends HTMLElement {
     this.dispatchEvent(ev);
   }
   _moreInfo(id) { if (id) this._fire("hass-more-info", { entityId: id }); }
-  _headTap(fallbackEntity) {
+  /* Was ein Tipp auf den Kopf auslöst: die eingestellte Aktion, sonst der
+     Info-Dialog der Hauptentität. "none" schaltet den Kopf bewusst stumm. */
+  _headTarget(fallbackEntity) {
     const a = this._config.tap_action;
-    if (!a || a.action === "none") return;
-    this._fire("hass-action", { config: { tap_action: a, entity: this._config.entity || fallbackEntity }, action: "tap" });
+    const entity = this._config.entity || fallbackEntity;
+    if (a && a.action === "none") return null;
+    if (a && a.action) return { action: a, entity };
+    return entity ? { action: { action: "more-info" }, entity } : null;
   }
+  _headTap(fallbackEntity) {
+    const t = this._headTarget(fallbackEntity);
+    if (!t) return;
+    if (t.action.action === "more-info" && !t.action.entity) { this._moreInfo(t.entity); return; }
+    this._fire("hass-action", { config: { tap_action: t.action, entity: t.entity }, action: "tap" });
+  }
+  /* Langes Drücken: hold_action, sonst der Info-Dialog */
+  _headHold(fallbackEntity) {
+    const h = this._config.hold_action;
+    const entity = this._config.entity || fallbackEntity;
+    if (h && h.action === "none") return;
+    if (h && h.action) {
+      this._fire("hass-action", { config: { hold_action: h, entity }, action: "hold" });
+      return;
+    }
+    this._moreInfo(entity);
+  }
+  /* Rückfrage vor Aktionen, die etwas in Gang setzen. Nutzt den
+     Bestätigungsdialog von Home Assistant. */
+  _confirmService(domain, service, data, text) {
+    const target = {};
+    const rest = Object.assign({}, data || {});
+    if (rest.entity_id) { target.entity_id = rest.entity_id; delete rest.entity_id; }
+    this._fire("hass-action", {
+      config: { tap_action: {
+        action: "perform-action", perform_action: domain + "." + service,
+        target, data: rest, confirmation: { text },
+      } },
+      action: "tap",
+    });
+  }
+  _toast(message) { this._fire("hass-notification", { message }); }
   _domainToggle(id) {
     const hass = this._hass, s = stateOf(hass, id), d = id.split(".")[0];
     if (d === "lock") hass.callService("lock", s === "locked" ? "unlock" : "lock", { entity_id: id });
@@ -755,10 +917,80 @@ class PrismCard extends HTMLElement {
   }
   _wireHead(fallbackEntity) {
     const el = this.shadowRoot.getElementById("head");
-    if (el) el.addEventListener("click", () => this._headTap(fallbackEntity));
+    if (el) {
+      /* Der Pfeil verspricht eine Aktion — ohne Ziel verschwindet er,
+         und der Kopf sieht nicht mehr antippbar aus. */
+      const target = this._headTarget(fallbackEntity);
+      if (!target) {
+        el.style.cursor = "default";
+        const go = el.querySelector(".go");
+        if (go) go.remove();
+      } else {
+        el.classList.add("tap");
+        let timer = null, held = false;
+        const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+        el.addEventListener("pointerdown", () => {
+          held = false;
+          clear();
+          timer = setTimeout(() => { held = true; this._headHold(fallbackEntity); }, 550);
+        });
+        ["pointerup", "pointerleave", "pointercancel"].forEach((n) => el.addEventListener(n, clear));
+        el.addEventListener("contextmenu", (ev) => { if (held) ev.preventDefault(); });
+        el.addEventListener("click", (ev) => {
+          if (held) { held = false; ev.stopPropagation(); return; }
+          this._headTap(fallbackEntity);
+        });
+      }
+    }
     this.shadowRoot.querySelectorAll("[data-mi]").forEach((n) => {
       n.addEventListener("click", (ev) => { ev.stopPropagation(); this._moreInfo(n.getAttribute("data-mi")); });
     });
+    /* "+N" führt dorthin, wo die ganze Liste steht */
+    this._chipMore = () => this._headTap(fallbackEntity);
+  }
+
+  /* Tastatur und Screenreader: alles Antippbare ist fokussierbar und
+     reagiert auf Enter und Leertaste. */
+  _a11y() {
+    const root = this.shadowRoot;
+    if (!root) return;
+    const sel = "#head.tap,[data-mi],.act,.ctrl .btn,.pp,#mute,.cam-ev,#cam-shot,#cam-pill," +
+      "#ev-seg b,#ev-clim,#ev-bar,.soc[id],#pr-power,#pr-yes,#pr-no,#pr-shot,#pr-head,#pr-bar,.chip.more,.p-warn";
+    root.querySelectorAll(sel).forEach((el) => {
+      if (el.tagName === "BUTTON" || el.hasAttribute("tabindex")) return;
+      el.setAttribute("tabindex", "0");
+      if (!el.hasAttribute("role")) el.setAttribute("role", "button");
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        el.click();
+      });
+    });
+    const card = root.querySelector(".card");
+    if (card && card.style.cursor === "pointer" && !card.hasAttribute("tabindex")) {
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("role", "button");
+      card.classList.add("tapcard");
+      card.addEventListener("keydown", (ev) => {
+        if (ev.target !== card || (ev.key !== "Enter" && ev.key !== " ")) return;
+        ev.preventDefault();
+        card.click();
+      });
+    }
+  }
+
+  /* Entitäten aus der Konfiguration, die Home Assistant nicht kennt */
+  _missing() {
+    const schema = this.constructor.schema || [];
+    const hass = this._hass, cfg = this._config, out = [];
+    schema.forEach((f) => {
+      if (!f.selector || !f.selector.entity) return;
+      toList(cfg[f.name]).forEach((id) => {
+        if (typeof id === "string" && id.indexOf(".") > 0 && !hass.states[id]) out.push(id);
+      });
+    });
+    return out;
   }
 
   /* ---------- Bausteine ---------- */
@@ -833,12 +1065,22 @@ class PrismCard extends HTMLElement {
     if (!more) {
       more = document.createElement("span");
       more.className = "chip more";
+      more.style.cursor = "pointer";
+      more.setAttribute("tabindex", "0");
+      more.setAttribute("role", "button");
+      more.addEventListener("click", (ev) => { ev.stopPropagation(); if (this._chipMore) this._chipMore(); });
+      more.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); more.click(); }
+      });
       box.appendChild(more);
     }
     let keep = kids.length;
     const apply = (n) => {
       kids.forEach((k, i) => { k.style.display = i < n ? "" : "none"; });
       more.textContent = "+" + (kids.length - n);
+      const hidden = kids.slice(n).map((k) => k.textContent.trim()).join(", ");
+      more.title = hidden;
+      more.setAttribute("aria-label", (kids.length - n) + " weitere: " + hidden);
       more.style.display = "";
     };
     do {
@@ -884,12 +1126,38 @@ class PrismCard extends HTMLElement {
   _render() {
     if (!this._config || !this._hass) return;
     let v;
-    try { v = this.view(this._hass, this._config); } catch (e) { return; }
+    try { v = this.view(this._hass, this._config); } catch (e) {
+      /* Ein Fehler in der Karte bleibt nicht unsichtbar */
+      const msg = String((e && e.message) || e);
+      if (this._errMsg !== msg) { this._errMsg = msg; console.error("[prism-cards] " + this.localName, e); }
+      v = {
+        tone: "rose", fill: 0, quiet: true, sig: ["error", msg],
+        head: this.head("mdi:alert-circle-outline", this._config.title || this._config.name || "Karte",
+          "Fehler", { go: false }),
+        body: `<div class="p-err"><b>Diese Karte konnte nicht berechnet werden.</b><span>${esc(msg)}</span></div>`,
+        foot: "", error: true,
+      };
+    }
     if (!v) return;
 
-    const sig = JSON.stringify([v.sig, this._config]);
+    const missing = v.error ? [] : this._missing();
+    const sig = JSON.stringify([v.sig, this._config, missing]);
     if (sig === this._sig) return;
     this._sig = sig;
+
+    /* Das Neuzeichnen ersetzt den ganzen Inhalt. Scrollposition und
+       Tastaturfokus werden vorher gemerkt und danach wiederhergestellt. */
+    const keep = { scroll: [], focus: -1 };
+    if (this.shadowRoot) {
+      this.shadowRoot.querySelectorAll(".c-list,.s-code,.cam-list,.zb,.zd").forEach((n, i) => {
+        if (n.scrollTop > 0) keep.scroll.push([n.className, i, n.scrollTop]);
+      });
+      const act = this.shadowRoot.activeElement;
+      if (act) keep.focus = [...this.shadowRoot.querySelectorAll("[tabindex],button")].indexOf(act);
+    }
+    const dark = !v.quiet && !v.cover && !v.ink && DARK_TONES.has(v.tone)
+      && !this._config.gradient_from && !this._config.gradient_to && !this._config.color_accent
+      && !v.from && !v.to;
 
     const dbl = this.constructor.double && this._config.shape !== "square";
     const bar = !!v.bar;
@@ -897,8 +1165,8 @@ class PrismCard extends HTMLElement {
     const free = this._config.shape === "free";
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML =
-      `<style>${BASE_CSS}${this.constructor.css || ""}${this._paintCSS(v)}</style>
-       <div class="card${v.quiet ? " quiet" : ""}${dbl ? " dbl" : ""}${bar ? " has-bar" : ""}${solo ? " solo" : ""}${free ? " free" : ""}${v.cover ? " on-cover" : ""}"
+      `<style>${BASE_CSS}${this.constructor.css || ""}${FIX_CSS}${this._paintCSS(v)}</style>
+       <div class="card${v.quiet ? " quiet" : ""}${dbl ? " dbl" : ""}${bar ? " has-bar" : ""}${solo ? " solo" : ""}${free ? " free" : ""}${v.cover ? " on-cover" : ""}${dark ? " inv" : ""}"
             style="--cols:${this._columns()}; --fill:${Math.max(0, Math.min(100, Number(v.fill) || 0))}%">
          ${v.cover
             ? `<div class="cover" style="background-image:url('${esc(v.cover)}')"></div><div class="scrim"></div>`
@@ -909,9 +1177,26 @@ class PrismCard extends HTMLElement {
          ${v.foot ? `<div class="zf">${v.foot}</div>` : ""}
          ${dbl ? `<div class="zd">${v.detail || ""}</div>` : ""}
          ${bar ? `<div class="zs">${v.bar}</div>` : ""}
+         ${missing.length ? `<span class="p-warn" id="p-warn" title="${esc("Nicht gefunden: " + missing.join(", "))}">
+            <ha-icon icon="mdi:alert-outline"></ha-icon>${missing.length}</span>` : ""}
        </div>`;
 
+    if (v.error) return;
     if (this.wire) this.wire(v);
+    if (missing.length) {
+      this._on("p-warn", () => this._toast(
+        (missing.length === 1 ? "Entität nicht gefunden: " : missing.length + " Entitäten nicht gefunden: ")
+        + missing.join(", ")));
+    }
+    this._a11y();
+    keep.scroll.forEach(([cls, i, top]) => {
+      const n = this.shadowRoot.querySelectorAll(".c-list,.s-code,.cam-list,.zb,.zd")[i];
+      if (n && n.className === cls) n.scrollTop = top;
+    });
+    if (keep.focus >= 0) {
+      const n = [...this.shadowRoot.querySelectorAll("[tabindex],button")][keep.focus];
+      if (n) n.focus({ preventScroll: true });
+    }
     requestAnimationFrame(() => this._fitChips());
   }
 }
@@ -973,6 +1258,7 @@ const SHAPE_LABELS = { shape: "Form der Karte" };
 function register(tag, cls, meta, schema, labels) {
   const editorTag = tag + "-editor";
   cls.editorTag = editorTag;
+  cls.schema = schema;
   const full = schema.concat(STYLE_SCHEMA, cls.double ? SHAPE_SCHEMA : []);
   const lab = Object.assign({}, labels, STYLE_LABELS, cls.double ? SHAPE_LABELS : {});
   if (!customElements.get(tag)) customElements.define(tag, cls);
@@ -1343,7 +1629,7 @@ const TEMP_CSS = `
 /* Die Karte stapelt Kopf, Graph und Sockel. Ohne feste Anteile schrumpft
    der Graph zwischen den beiden anderen zusammen. */
 .card > .zb{justify-content:stretch}
-.zb .graph{flex:1 1 auto; min-height:clamp(28px, calc(var(--u) * 0.7), 90px)}
+.zb .graph{flex:1 1 auto; min-height:clamp(18px, calc(var(--u) * 0.5), 90px)}
 .zb .glabel{flex:none}
 /* Sockel: große Zahl nach der Skala, Zeilen dürfen nicht mitwachsen */
 .zf .val{font-size:var(--t-hero)}
@@ -1395,10 +1681,15 @@ class PrismTemperatureCard extends PrismCard {
 
   view(hass, cfg) {
     const insideState = cfg.inside ? hass.states[cfg.inside] : null;
-    const inside = insideState ? parseFloat(insideState.state) : null;
+    const insideRaw = insideState ? parseFloat(insideState.state) : NaN;
     const unit = (insideState && insideState.attributes.unit_of_measurement) || "°C";
 
     const sensors = this._tempSensors();
+    /* Liefert der gewählte Sensor nichts, springt der Mittelwert aller
+       Sensoren ein — eine Zahl statt eines Strichs. */
+    const insideDead = !!cfg.inside && isNaN(insideRaw);
+    const avg = sensors.length ? sensors.reduce((a, x) => a + x.v, 0) / sensors.length : null;
+    const inside = !isNaN(insideRaw) ? insideRaw : avg;
     let minS = null, maxS = null;
     sensors.forEach((s) => {
       if (!minS || s.v < minS.v) minS = s;
@@ -1415,10 +1706,13 @@ class PrismTemperatureCard extends PrismCard {
     return {
       tone, fill,
       quiet: inside === null,
-      sig: [inside, unit, minS, maxS, (this._points || []).length],
-      head: this.head("mdi:thermometer", cfg.title, `Innen · ${sensors.length} Sensoren`),
+      sig: [inside, insideDead, unit, minS, maxS, this._points === null ? -1 : this._points.length],
+      head: this.head("mdi:thermometer", cfg.title,
+        (insideDead ? "Mittel" : "Innen") + ` · ${sensors.length} Sensoren`),
       body: this.graph(paths, 300, 60,
-        cfg.inside ? "Verlauf wird geladen…" : "Keine Innentemperatur gewählt.", legend),
+        insideDead ? "Innensensor meldet keinen Wert — angezeigt wird der Mittelwert."
+          : !cfg.inside ? "Keine Innentemperatur gewählt."
+          : this._points === null ? "Verlauf wird geladen…" : "Kein Verlauf vorhanden.", legend),
       foot: this.value(fmt1(inside), unit) +
         this.rows([
           maxS ? { icon: "mdi:thermometer-high", hot: true, k: maxS.room, v: fmt1(maxS.v) + "°", mi: maxS.id } : null,
@@ -1666,7 +1960,7 @@ const WEATHER_CSS = `
 .w-fc{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;gap:clamp(3px,calc(var(--u) * 0.12),10px);height:100%}
 .w-fd{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:clamp(3px,calc(var(--u) * 0.108),8px);min-width:0;height:100%}
-.w-dy{font-family:var(--p-mono);font-size:clamp(9.5px,calc(var(--u) * 0.276),16.1px);font-weight:700;
+.w-dy{font-family:var(--p-mono);font-size:clamp(10px,calc(var(--u) * 0.276),16.1px);font-weight:700;
   letter-spacing:.06em;text-transform:uppercase;opacity:.8}
 .w-ic{width:clamp(22px,calc(var(--u) * 0.78),46px);height:clamp(22px,calc(var(--u) * 0.78),46px);opacity:.95}
 .w-ic svg{width:100%;height:100%;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -1861,7 +2155,7 @@ class PrismMediaCard extends PrismCard {
     const playing = this._player && this._hass.states[this._player] &&
       this._hass.states[this._player].state === "playing";
     if (playing && !this._tick) {
-      this._tick = setInterval(() => { this._sig = null; this._render(); }, 1000);
+      this._tick = setInterval(() => this._tickProgress(), 1000);
     } else if (!playing && this._tick) {
       clearInterval(this._tick); this._tick = null;
     }
@@ -1885,6 +2179,23 @@ class PrismMediaCard extends PrismCard {
     const playing = cand.find((id) => hass.states[id].state === "playing");
     if (playing) return playing;
     return cand.find((id) => ACTIVE_STATES.includes(hass.states[id].state)) || null;
+  }
+  /* Nur Balken und Zeit nachführen — die Karte selbst bleibt stehen,
+     damit Tipps auf die Knöpfe nicht verloren gehen. */
+  _tickProgress() {
+    const st = this._player && this._hass ? this._hass.states[this._player] : null;
+    const root = this.shadowRoot;
+    if (!st || !root) return;
+    const dur = st.attributes.media_duration;
+    const pos = this._pos(st);
+    if (!dur || pos === null || dur <= 0) return;
+    const pct = Math.min(100, (pos / dur) * 100);
+    const bar = root.querySelector(".zf .bar i");
+    const cur = root.querySelector(".zf .times span");
+    const card = root.querySelector(".card");
+    if (bar) bar.style.width = pct.toFixed(1) + "%";
+    if (cur) cur.textContent = mmss(Math.min(pos, dur));
+    if (card) card.style.setProperty("--fill", pct.toFixed(1) + "%");
   }
   _pos(st) {
     if (!st) return null;
@@ -1950,7 +2261,7 @@ class PrismMediaCard extends PrismCard {
       quiet: !active && !cover,
       cover,
       sig: [this._player, st && st.state, cover, title, artist,
-        pct === null ? null : Math.round(pct), vol, muted, cand.length, active ? Math.floor(pos || 0) : 0],
+        pct === null ? null : (playing ? "live" : Math.round(pct)), dur, vol, muted, cand.length],
       head: this.head("mdi:music-note", name, active ? (playing ? "Spielt" : "Pause") : "Bereit"),
       body, foot,
     };
@@ -2042,7 +2353,7 @@ const ENERGY_CSS = `
 .e-big small{font-size:.36em;font-weight:500;opacity:.75}
 .e-pv{color:#A3E635;text-shadow:0 0 20px rgba(163,230,53,.6)}
 .e-use{color:#FB7185;text-shadow:0 0 20px rgba(251,113,133,.5)}
-.e-cap{font-size:clamp(9px,calc(var(--u) * 0.276),12px);opacity:.72;margin-top:.35em}
+.e-cap{font-size:clamp(10px,calc(var(--u) * 0.276),12px);opacity:.72;margin-top:.35em}
 
 .e-plot{position:relative;min-height:0;height:100%;display:flex}
 .e-plot svg{display:block;width:100%;height:100%;overflow:visible}
@@ -2050,7 +2361,7 @@ const ENERGY_CSS = `
 .e-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.312),13px);opacity:.6}
 
 .e-lbl{display:flex;justify-content:space-between;align-items:baseline;gap:1em;
-  font-family:var(--p-mono);font-size:clamp(8px,calc(var(--u) * 0.24),11px);margin-bottom:5px}
+  font-family:var(--p-mono);font-size:clamp(10px,calc(var(--u) * 0.24),11px);margin-bottom:5px}
 .e-lbl > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .e-lbl .l{display:flex;align-items:baseline;gap:.5em;flex:none}
 .e-lbl .k{opacity:.7}
@@ -2582,6 +2893,9 @@ class PrismMiniCard extends PrismCard {
         : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : Math.round(n) === n ? 0 : 1);
       const unit = cfg.unit !== undefined ? cfg.unit
         : (!cfg.attribute && st ? (st.attributes.unit_of_measurement || "") : "");
+      if (n < 0 && cfg.allow_negative !== true && ["h", "d", "min", "s", "%"].includes(String(unit).trim())) {
+        return { txt: cfg.overdue_text || "Fällig", unit: "", n: null, overdue: true };
+      }
       return { txt: fmt(n, d), unit, n };
     }
     if (f === "auto" && /^\d{4}-\d{2}-\d{2}T/.test(String(raw))) {
@@ -2626,6 +2940,8 @@ class PrismMiniCard extends PrismCard {
     if (cfg.secondary_text) return cfg.secondary_text;
     if (!cfg.secondary_entity) return "";
     const sec = this._read(cfg.secondary_entity, cfg.secondary_attribute);
+    if (sec.raw === null || sec.raw === undefined
+      || ["unavailable", "unknown", "none", ""].includes(String(sec.raw).toLowerCase())) return "";
     const sv = this._format(sec.raw, {
       format: cfg.secondary_format || "auto",
       duration_unit: cfg.duration_unit,
@@ -2745,9 +3061,9 @@ class PrismMiniCard extends PrismCard {
     }
 
     return {
-      tone: cfg.tone || "teal",
+      tone: v.overdue ? "sand" : (cfg.tone || "teal"),
       fill,
-      quiet: phase === "off",
+      quiet: phase === "off" && !v.overdue,
       sig: [layout, raw, secondary, phase, fill, icon, name],
       head: "", foot: "",
       body: `<div class="mini">
@@ -2965,15 +3281,16 @@ const NETWORK_CSS = `
 .n-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.192),13px);opacity:.6}
 
 /* Werte */
-.n-nums{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.n-nums{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:8px}
+.n-nums > div{min-width:0;overflow:hidden}
 .n-big{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
   letter-spacing:-.04em;line-height:.9;display:flex;align-items:baseline;gap:.08em;
-  font-size:clamp(20px,calc(var(--u) * 0.897),46px)}
+  font-size:clamp(17px,calc(var(--u) * 0.62),34px);white-space:nowrap}
 .n-big small{font-size:.34em;font-weight:500;opacity:.72}
 .n-dn{color:#67E8F9;text-shadow:0 0 18px rgba(103,232,249,.5)}
 .n-up{color:#A7F3D0;text-shadow:0 0 18px rgba(167,243,208,.45)}
 .card.n-off .n-dn,.card.n-off .n-up{color:#FBD5DC;text-shadow:none;opacity:.8}
-.n-cap{font-size:clamp(9px,calc(var(--u) * 0.18),12px);opacity:.75;margin-top:.3em;display:flex;align-items:center;gap:.3em}
+.n-cap{font-size:clamp(10.5px,calc(var(--u) * 0.18),12px);opacity:.88;margin-top:.3em;display:flex;align-items:center;gap:.3em}
 .n-cap svg{width:1.05em;height:1.05em;stroke:currentColor;stroke-width:2.1;fill:none;
   stroke-linecap:round;stroke-linejoin:round}
 @media (prefers-reduced-motion: reduce){.n-sweep,.n-ping .ring{animation:none}}
@@ -3240,13 +3557,13 @@ const PRINTER_CSS = `
   border:1px solid rgba(255,255,255,.08);display:grid;place-items:center;padding:8px}
 .pr-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .pr-shot .ph{font-family:var(--p-mono);letter-spacing:.6px;text-align:center;line-height:1.5;
-  font-size:clamp(8px,calc(var(--u) * .206),12px);color:#5D6864;white-space:pre-line}
+  font-size:clamp(10px,calc(var(--u) * .206),12px);color:#5D6864;white-space:pre-line}
 .pr.off .pr-shot .ph{color:#8E9995}
 .pr-live{position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:6px;
   padding:4px 9px;border-radius:7px;background:rgba(0,0,0,.66);z-index:2}
 .pr-live i{width:6px;height:6px;border-radius:50%;background:#FF5648;animation:pr-pulse 1.6s ease-in-out infinite}
 .pr-live b{font-family:var(--p-mono);font-weight:700;letter-spacing:1px;color:#E2E7E4;
-  font-size:clamp(8px,calc(var(--u) * .206),12px)}
+  font-size:clamp(10px,calc(var(--u) * .206),12px)}
 
 .pr-btn{flex:none;width:100%;display:flex;align-items:center;justify-content:center;gap:.5em;
   border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#B3BCB8;
@@ -3257,7 +3574,7 @@ const PRINTER_CSS = `
 .pr-btn.go{border-color:rgba(0,198,94,.45);background:rgba(0,198,94,.18);color:#6EE7A5}
 .pr-btn.warn{border-color:rgba(255,86,72,.55);background:rgba(255,86,72,.22);color:#FF9184;font-weight:700}
 .pr-btn.ghost{border-color:rgba(255,255,255,.14);background:transparent;color:#A8B2AE;
-  font-size:clamp(9.5px,calc(var(--u) * .28),16px);padding:calc(var(--u) * .13) 0}
+  font-size:clamp(10px,calc(var(--u) * .28),16px);padding:calc(var(--u) * .13) 0}
 .pr-confirm{flex:none;display:flex;flex-direction:column;gap:calc(var(--u) * .13)}
 
 .pr-right{flex:1;min-width:0;box-sizing:border-box;
@@ -3268,7 +3585,7 @@ const PRINTER_CSS = `
   font-size:clamp(11px,calc(var(--u) * .338),20px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-eta{font-family:var(--p-mono);color:#9AA5A1;white-space:nowrap;flex:none;
-  font-size:clamp(9px,calc(var(--u) * .263),15px)}
+  font-size:clamp(10px,calc(var(--u) * .263),15px)}
 
 .pr-prog{flex:none;display:flex;flex-direction:column;gap:calc(var(--u) * .13)}
 .pr-progtop{display:flex;align-items:baseline;gap:.7em}
@@ -3278,7 +3595,7 @@ const PRINTER_CSS = `
 .pr-pct i{font-family:var(--p-display);font-style:normal;font-weight:600;color:#7D8985;
   font-size:clamp(11px,calc(var(--u) * 0.3668),21.8px)}
 .pr-lbl{font-family:var(--p-mono);letter-spacing:1px;color:#6F7A76;
-  font-size:clamp(8px,calc(var(--u) * .225),13px)}
+  font-size:clamp(10px,calc(var(--u) * .225),13px)}
 .pr-rest{font-family:var(--p-display);font-weight:700;letter-spacing:-.6px;
   font-size:clamp(13px,calc(var(--u) * .394),23px)}
 .pr-bar{height:clamp(7px,calc(var(--u) * .206),13px);border-radius:999px;background:rgba(0,0,0,.45);
@@ -3295,14 +3612,14 @@ const PRINTER_CSS = `
   background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.07)}
 .pr.off .pr-tile{background:rgba(0,0,0,.28);border-color:rgba(255,255,255,.05)}
 .pr-tile .k{font-family:var(--p-mono);letter-spacing:.8px;color:#6F7A76;
-  font-size:clamp(7.5px,calc(var(--u) * .206),12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(10px,calc(var(--u) * .206),12px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-tile .v{font-family:var(--p-display);font-weight:700;letter-spacing:-.6px;line-height:1.15;
   font-size:clamp(10px,calc(var(--u) * 0.4094),23px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr.off .pr-tile .v{color:#9AA5A1}
 
 .pr-ams{flex:none;display:flex;align-items:center;gap:.6em;min-width:0}
 .pr-ams > .k{font-family:var(--p-mono);letter-spacing:1px;color:#6F7A76;flex:none;
-  font-size:clamp(8px,calc(var(--u) * .225),13px)}
+  font-size:clamp(10px,calc(var(--u) * .225),13px)}
 .pr-slots{display:flex;gap:calc(var(--u) * .11);flex:1;min-width:0}
 .pr-slot{flex:1;min-width:0;display:flex;align-items:center;gap:.45em;
   padding:calc(var(--u) * .09) calc(var(--u) * .15) calc(var(--u) * .09) calc(var(--u) * .09);
@@ -3311,7 +3628,7 @@ const PRINTER_CSS = `
 .pr-slot i{width:clamp(11px,calc(var(--u) * .28),17px);aspect-ratio:1;flex:none;border-radius:4px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
 .pr-slot b{font-family:var(--p-mono);font-weight:400;color:#C3CCC8;
-  font-size:clamp(8px,calc(var(--u) * 0.2691),14.9px);
+  font-size:clamp(10px,calc(var(--u) * 0.2691),14.9px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Ausgeschaltet: AMS groß */
@@ -3323,20 +3640,20 @@ const PRINTER_CSS = `
 .pr-bigslot i{flex:1;min-height:clamp(14px,calc(var(--u) * .5),34px);border-radius:8px;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
 .pr-bigslot b{font-family:var(--p-mono);font-weight:400;color:#C3CCC8;text-align:center;
-  font-size:clamp(8px,calc(var(--u) * 0.2691),14.9px);line-height:1.2;
+  font-size:clamp(10px,calc(var(--u) * 0.2691),14.9px);line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-bigslot.empty i{background:repeating-linear-gradient(135deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px) !important}
 .pr-bigslot.empty b{color:#6F7A76}
 
 /* Ausgeschaltet */
 .pr-blockk{font-family:var(--p-mono);letter-spacing:1px;color:#6F7A76;
-  font-size:clamp(8px,calc(var(--u) * .225),13px)}
+  font-size:clamp(10px,calc(var(--u) * .225),13px)}
 .pr-off-big{font-family:var(--p-display);font-weight:700;letter-spacing:-.8px;line-height:1.2;color:#B9C2BE;
   font-size:clamp(14px,calc(var(--u) * 0.4956),28.7px)}
 .pr-last{font-family:var(--p-display);font-weight:600;line-height:1.35;letter-spacing:-.2px;color:#D5DBD8;
   font-size:clamp(11px,calc(var(--u) * .319),19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-lastmeta{font-family:var(--p-mono);color:#8E9995;
-  font-size:clamp(9px,calc(var(--u) * .244),14px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(10px,calc(var(--u) * .244),14px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pr-grow{flex:1;min-height:0}
 @media (prefers-reduced-motion: reduce){.pr .pr-dot,.pr-bar i,.pr-live i{animation:none}}
 `;
@@ -3399,10 +3716,10 @@ class PrismPrinterCard extends PrismCard {
     const etaDate = eta ? new Date(eta) : null;
     if (!etaDate || isNaN(etaDate)) {
       eta = remain !== null && remain > 0
-        ? new Date(Date.now() + remain * 60000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
+        ? new Date(Date.now() + remain * 60000).toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit" })
         : "–";
     } else {
-      eta = etaDate.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      eta = etaDate.toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit" });
     }
 
     const mode = !on ? "off" : errors ? "err" : paused ? "paused" : "";
@@ -3635,17 +3952,17 @@ const VACUUM_CSS = `
 /* Icon als Wasserzeichen hinter dem Text. Es liegt auf Kartenebene,
    ragt über den Rand hinaus und wird von der Karte rund beschnitten —
    dadurch überlagert es den Text nicht mehr. */
-.v-wm{position:absolute;right:-12%;bottom:-14%;z-index:0;line-height:0;
-  opacity:.24;pointer-events:none}
-.v-wm ha-icon{--mdc-icon-size:clamp(70px,calc(var(--u) * 2.76),200px);width:auto;height:auto;display:block}
-.card.quiet .v-wm{opacity:.16}
+.v-wm{position:absolute;right:-20%;top:-16%;z-index:0;line-height:0;
+  opacity:.2;pointer-events:none}
+.v-wm ha-icon{--mdc-icon-size:clamp(56px,calc(var(--u) * 2.1),150px);width:auto;height:auto;display:block}
+.card.quiet .v-wm{opacity:.12}
 .v-wm .spin{animation:v-spin 4s linear infinite;transform-origin:50% 50%;display:block}
 @keyframes v-spin{to{transform:rotate(360deg)}}
 
 .v-l{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;gap:.15em}
 .v-sp{flex:1;min-height:0}
 .v-pill{align-self:flex-start;display:inline-flex;align-items:center;gap:.4em;
-  font-family:var(--p-mono);font-weight:700;font-size:clamp(7.5px,calc(var(--u) * 0.15),11px);
+  font-family:var(--p-mono);font-weight:700;font-size:clamp(10px,calc(var(--u) * 0.15),11px);
   letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;max-width:100%;
   padding:.4em .7em;border-radius:999px;background:rgba(11,10,20,.20);
   overflow:hidden;text-overflow:ellipsis}
@@ -3655,7 +3972,7 @@ const VACUUM_CSS = `
 @keyframes v-blink{0%,100%{opacity:1}50%{opacity:.35}}
 
 .v-val{font-family:var(--p-mono);font-weight:700;font-variant-numeric:tabular-nums;
-  letter-spacing:-.04em;line-height:.95;font-size:clamp(19px,calc(var(--u) * 0.7245),50.6px);
+  letter-spacing:-.04em;line-height:.95;font-size:clamp(17px,calc(var(--u) * 0.7245),44px);flex:none;
   display:flex;align-items:baseline;gap:.06em}
 .v-val small{font-size:.38em;font-weight:500;opacity:.72}
 .v-val.txt{font-family:var(--p-display);font-size:clamp(15px,calc(var(--u) * 0.5175),34.5px);letter-spacing:-.02em}
@@ -3663,7 +3980,7 @@ const VACUUM_CSS = `
    passen längere Gerätenamen sonst nicht in eine Zeile. Zwei Zeilen sind das
    Maximum, danach wird gekürzt. */
 .v-nm{font-family:var(--p-display);font-weight:700;letter-spacing:-.02em;line-height:1.12;
-  font-size:clamp(9.5px,calc(var(--u) * 0.258),18px);margin-top:.2em;
+  font-size:clamp(11px,calc(var(--u) * 0.3),18px);margin-top:.2em;flex:none;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
   overflow:hidden;overflow-wrap:anywhere;hyphens:auto}
 @media (prefers-reduced-motion: reduce){.v-wm .spin,.v-pill .dt.blink{animation:none}}
@@ -3749,8 +4066,8 @@ class PrismVacuumCard extends PrismCard {
       if (!isNaN(d)) {
         const sameDay = d.toDateString() === new Date().toDateString();
         lastTxt = sameDay
-          ? d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
-          : d.toLocaleDateString("de-DE", { weekday: "short" });
+          ? d.toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit" })
+          : d.toLocaleDateString(PRISM_LOCALE, { weekday: "short" });
       }
     }
     const worst = this._consumable(hass, cfg);
@@ -3888,21 +4205,23 @@ const SYSTEM_CSS = `
 .card .badge{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12)}
 
 /* Log — Schriftgröße skaliert mit der Karte */
-.s-code{font-family:var(--p-mono);display:flex;flex-direction:column;justify-content:center;
-  min-height:0;overflow:hidden;gap:clamp(2px,calc(var(--u) * 0.072),6px);
-  font-size:clamp(8px,calc(var(--u) * 0.204),15px);line-height:1.4}
+.s-code{font-family:var(--p-mono);display:flex;flex-direction:column;justify-content:flex-start;
+  min-height:0;height:100%;overflow-y:auto;scrollbar-width:none;padding:8px 0 18px;overscroll-behavior:contain;gap:clamp(2px,calc(var(--u) * 0.072),6px);
+  font-size:clamp(10px,calc(var(--u) * 0.204),15px);line-height:1.4}
 .s-ln{display:flex;align-items:baseline;gap:.5em;white-space:nowrap;min-width:0}
 .s-tag{font-weight:700;flex:none;letter-spacing:-.02em}
 .s-txt{overflow:hidden;text-overflow:ellipsis}
 .s-ok{color:#4ADE80}.s-wr{color:#FDE047}.s-er{color:#FB7185}
 .card.s-amber .s-ok{color:#FCD34D}.card.s-amber .s-wr{color:#FDBA74}
 .card.s-ice .s-ok{color:#7DD3FC}.card.s-ice .s-wr{color:#FDE047}
-.s-item{opacity:.82;padding-left:1.2em}
-.s-dim{opacity:.6}
+.s-item{opacity:.9;padding-left:1.2em}
+.s-dim{opacity:.72}
 .s-cur{display:inline-block;width:.6em;height:1.05em;background:currentColor;
   vertical-align:-.15em;margin-left:.35em;animation:s-blink 1.1s steps(2) infinite}
 @keyframes s-blink{50%{opacity:0}}
-.s-foot{font-family:var(--p-mono);font-size:clamp(7.5px,calc(var(--u) * 0.156),11px);opacity:.6;
+.s-code::-webkit-scrollbar{display:none}
+.s-ln{flex:none}
+.s-foot{font-family:var(--p-mono);font-size:clamp(10px,calc(var(--u) * 0.156),11px);opacity:.6;
   display:flex;justify-content:space-between;gap:1em;white-space:nowrap}
 @media (prefers-reduced-motion: reduce){.s-cur{animation:none}}
 `;
@@ -4014,7 +4333,7 @@ class PrismSystemCard extends PrismCard {
       : (hass.states["update.home_assistant_core_update"]
           ? hass.states["update.home_assistant_core_update"].attributes.installed_version || "" : "");
 
-    const now = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const now = new Date().toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
     return {
       tone: "forest", ink: undefined,
@@ -4025,7 +4344,7 @@ class PrismSystemCard extends PrismCard {
       head: this.head("mdi:cog-play-outline", cfg.title,
         issues ? "systemcheck · " + hints + (hints === 1 ? " Hinweis" : " Hinweise") : "systemcheck · sauber",
         { go: false }),
-      body: `<div class="s-code">${L.join("")}</div>`,
+      body: `<div class="s-code fade-y">${L.join("")}</div>`,
       foot: `<div class="s-foot"><span>${esc(now)}</span><span>${
         core ? "core " + esc(core) : esc(zig.length + upd.length + batts.length + " offen")}</span></div>`,
     };
@@ -4094,7 +4413,7 @@ const CALENDAR_CSS = `
 .card .zh .go{--mdc-icon-size:clamp(15px,calc(var(--u) * 0.3),20px)}
 
 .c-list{display:flex;flex-direction:column;gap:clamp(5px,calc(var(--u) * 0.24),11px);
-  min-height:0;overflow-y:auto;scrollbar-width:none}
+  min-height:0;height:100%;overflow-y:auto;scrollbar-width:none;padding:8px 0 18px;overscroll-behavior:contain}
 .c-list::-webkit-scrollbar{display:none}
 
 .c-day{display:flex;gap:clamp(7px,calc(var(--u) * 0.36),14px);align-items:stretch;min-width:0}
@@ -4104,15 +4423,15 @@ const CALENDAR_CSS = `
 /* Datumsspalte */
 .c-date{width:clamp(30px,calc(var(--u) * 1.56),52px);flex:none;text-align:center;
   display:flex;flex-direction:column;justify-content:center;line-height:1}
-.c-wd{font-family:var(--p-mono);font-weight:700;font-size:clamp(7.5px,calc(var(--u) * 0.36),11px);
-  letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.c-wd{font-family:var(--p-mono);font-weight:700;font-size:clamp(10px,calc(var(--u) * 0.36),11px);
+  letter-spacing:.08em;text-transform:uppercase;opacity:.8}
 .c-dd{font-family:var(--p-mono);font-weight:700;font-size:clamp(15px,calc(var(--u) * 0.966),29.9px);
   letter-spacing:-.03em;margin:.1em 0}
-.c-mo{font-family:var(--p-mono);font-weight:700;font-size:clamp(7px,calc(var(--u) * 0.336),10px);
-  letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.c-mo{font-family:var(--p-mono);font-weight:700;font-size:clamp(10px,calc(var(--u) * 0.336),10px);
+  letter-spacing:.08em;text-transform:uppercase;opacity:.8}
 .c-day.today .c-wd,.c-day.today .c-dd,.c-day.today .c-mo{color:#67E8F9;opacity:1}
 .c-day.today .c-dd{text-shadow:0 0 16px rgba(103,232,249,.55)}
-.c-day.weekend .c-wd,.c-day.weekend .c-mo{opacity:.42}
+.c-day.weekend .c-wd,.c-day.weekend .c-mo{opacity:.62}
 
 /* Termine */
 .c-evts{flex:1;min-width:0;display:flex;flex-direction:column;gap:clamp(3px,calc(var(--u) * 0.168),7px);justify-content:center}
@@ -4123,11 +4442,11 @@ const CALENDAR_CSS = `
   font-size:clamp(10.5px,calc(var(--u) * 0.504),15px);
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .c-meta{display:flex;align-items:center;gap:.4em;margin-top:.18em;
-  font-family:var(--p-mono);font-size:clamp(8.5px,calc(var(--u) * 0.384),11.5px);opacity:.7;
+  font-family:var(--p-mono);font-size:clamp(10.5px,calc(var(--u) * 0.384),12px);opacity:.86;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c-meta ha-icon{--mdc-icon-size:1.15em;opacity:.85}
-.c-ev.past{opacity:.42}
-.c-more{font-family:var(--p-mono);font-size:clamp(8.5px,calc(var(--u) * 0.384),11.5px);opacity:.55;padding-left:calc(2.5px + clamp(5px,calc(var(--u) * 0.264),10px))}
+.c-ev.past{opacity:.6}
+.c-more{font-family:var(--p-mono);font-size:clamp(10px,calc(var(--u) * 0.384),11.5px);opacity:.55;padding-left:calc(2.5px + clamp(5px,calc(var(--u) * 0.264),10px))}
 .c-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.408),13px);opacity:.6;text-align:center}
 `;
 
@@ -4217,7 +4536,7 @@ class PrismCalendarCard extends PrismCard {
     const total = days.reduce((n, d) => n + d.events.length, 0);
     const now = new Date();
 
-    const fmtTime = (d) => d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const fmtTime = (d) => d.toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit" });
 
     const dayHtml = (day, i) => {
       const wd = day.date.getDay();
@@ -4264,7 +4583,7 @@ class PrismCalendarCard extends PrismCard {
       sig: [(this._events || []).map((e) => e.title + e.start.getTime()), cfg, Math.floor(Date.now() / 60000)],
       head: this.head(cfg.icon || "mdi:calendar-month-outline", cfg.title, status, { go: true }),
       body: shown.length
-        ? `<div class="c-list">${shown.map(dayHtml).join("")}</div>`
+        ? `<div class="c-list fade-y">${shown.map(dayHtml).join("")}</div>`
         : `<div class="c-list"><div class="c-empty">${
             this._events === null ? "Termine werden geladen…" : "Keine Termine in den nächsten " + (parseInt(cfg.days_to_show) || 7) + " Tagen"
           }</div></div>`,
@@ -4368,7 +4687,7 @@ const CLOCK_CSS = `
   font-size:clamp(10px,calc(var(--u) * 0.432),18px);letter-spacing:.24em;text-transform:uppercase;opacity:.7;
   margin-top:.6em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.k-extra{font-family:var(--p-mono);font-size:clamp(8px,calc(var(--u) * 0.312),13px);letter-spacing:.16em;
+.k-extra{font-family:var(--p-mono);font-size:clamp(10px,calc(var(--u) * 0.312),13px);letter-spacing:.16em;
   text-transform:uppercase;opacity:.45}
 /* ── Bauart „Klassisch": ruhige Monospace-Zahl, Datum darunter ── */
 .card.k-plain{background:linear-gradient(150deg,var(--k1),var(--k2));color:var(--kc)}
@@ -4643,7 +4962,7 @@ const EV_CSS = `
   font-size:clamp(24px,calc(var(--u) * 0.9108),62.1px);display:flex;align-items:baseline;gap:.08em}
 .ev-pw small{font-size:.3em;font-weight:600;opacity:.75}
 .ev-sub{font-family:var(--p-display);font-weight:800;font-size:clamp(10px,calc(var(--u) * 0.222),17px);margin-top:.2em}
-.ev-sub2{font-size:clamp(8.5px,calc(var(--u) * 0.162),12.5px);color:var(--dim);margin-top:.15em;display:flex;align-items:center;gap:.35em}
+.ev-sub2{font-size:clamp(10px,calc(var(--u) * 0.162),12.5px);color:var(--dim);margin-top:.15em;display:flex;align-items:center;gap:.35em}
 .ev-sub2 ha-icon{--mdc-icon-size:1.25em}
 
 /* Fahrzeugbild */
@@ -4680,7 +4999,7 @@ const EV_CSS = `
 .ev-bar i{position:absolute;inset:0;width:var(--w,0%);border-radius:9px;
   background:linear-gradient(90deg,var(--g1),var(--g2));transition:width .6s cubic-bezier(.2,.8,.2,1)}
 .ev-bar span.t{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--p-display);
-  font-weight:800;font-size:clamp(8.5px,calc(var(--u) * 0.168),13px);color:#04230F}
+  font-weight:800;font-size:clamp(10px,calc(var(--u) * 0.168),13px);color:#04230F}
 .ev-bar .sheen{position:absolute;top:0;bottom:0;width:26%;left:-30%;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent)}
 .card.ev-charging .ev-bar i{animation:ev-breathe 2.4s ease-in-out infinite}
@@ -4688,7 +5007,7 @@ const EV_CSS = `
 @keyframes ev-breathe{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
 @keyframes ev-sheen{to{left:110%}}
 .ev-legs{display:flex;justify-content:space-between;gap:1em;
-  font-size:clamp(7.5px,calc(var(--u) * 0.132),11.5px);color:var(--dim);margin-top:.22em}
+  font-size:clamp(10px,calc(var(--u) * 0.132),11.5px);color:var(--dim);margin-top:.22em}
 
 /* Modus-Pille */
 .ev-seg{display:flex;gap:2px;border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:2px;
@@ -4696,7 +5015,7 @@ const EV_CSS = `
 /* Weniger Schaltflächen heißt mehr Platz je Fläche: ab vier Modi wird die
    Schrift wieder kleiner, damit auch längere Namen nebeneinander passen. */
 .ev-seg b{flex:1;min-width:0;text-align:center;cursor:pointer;border-radius:999px;font-weight:700;
-  font-size:clamp(8.5px,calc(var(--u) * 0.174 * 3 / max(var(--n), 3)),14px);
+  font-size:clamp(10px,calc(var(--u) * 0.174 * 3 / max(var(--n), 3)),14px);
   padding:.45em .2em;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   transition:background .18s,opacity .18s}
 .ev-seg b:hover{opacity:1}
@@ -4704,7 +5023,7 @@ const EV_CSS = `
 
 /* Klima-Schalter */
 .ev-btn{display:flex;align-items:center;justify-content:center;gap:.45em;cursor:pointer;white-space:nowrap;
-  font-size:clamp(8.5px,calc(var(--u) * 0.156),13px);font-weight:700;padding:.5em .9em;border-radius:12px;flex:none;
+  font-size:clamp(10px,calc(var(--u) * 0.156),13px);font-weight:700;padding:.5em .9em;border-radius:12px;flex:none;
   background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);transition:background .18s}
 .ev-btn ha-icon{--mdc-icon-size:1.3em}
 .ev-btn:hover{background:rgba(255,255,255,.18)}
@@ -4881,9 +5200,14 @@ class PrismEvCard extends PrismCard {
       b.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (!cfg.mode_select) return;
-        this._hass.callService("select", "select_option", {
-          entity_id: cfg.mode_select, option: b.getAttribute("data-mode"),
-        });
+        const mode = b.getAttribute("data-mode");
+        if (stateOf(this._hass, cfg.mode_select) === mode) return;
+        if (cfg.confirm_mode === false) {
+          this._hass.callService("select", "select_option", { entity_id: cfg.mode_select, option: mode });
+          return;
+        }
+        this._confirmService("select", "select_option", { entity_id: cfg.mode_select, option: mode },
+          "Lademodus auf „" + (b.textContent || mode).trim() + "“ stellen?");
       });
     });
     /* Klimaanlage */
@@ -5029,7 +5353,7 @@ const HEIZUNG_CSS = `
 .hz-sub{font-family:var(--p-mono);font-weight:700;letter-spacing:.1em;line-height:1.2;margin-top:.25em;text-transform:uppercase;
   color:var(--hz-sub);font-size:var(--t-state);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hz-chip{flex:0 1 auto;margin-left:auto;cursor:pointer;font-family:var(--p-display);font-weight:600;
-  font-size:clamp(7.5px,calc(var(--u) * .19),13px);
+  font-size:clamp(10px,calc(var(--u) * .19),13px);
   padding:calc(var(--u) * .07) calc(var(--u) * .17);border-radius:999px;max-width:38%;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--hz-accent);
   background:rgba(255,138,61,.15);border:1px solid rgba(255,138,61,.34);transition:background .18s}
@@ -5070,7 +5394,7 @@ const HEIZUNG_CSS = `
 .hz-state .ic ha-icon{--mdc-icon-size:clamp(15px,calc(var(--u) * .34),30px);color:var(--hz-off);
   transition:color .3s}
 .hz-state .lbl{font-family:var(--p-display);font-weight:600;color:var(--hz-sub);
-  font-size:clamp(9px,calc(var(--u) * .22),17px);line-height:1.2;
+  font-size:clamp(10px,calc(var(--u) * .22),17px);line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s}
 .hz-state.on .lbl{color:inherit;font-weight:700}
 .hz-state.unknown{opacity:.45}
@@ -5088,17 +5412,17 @@ const HEIZUNG_CSS = `
   background:var(--hz-fill);border:1px solid rgba(243,236,231,.08);transition:background .18s}
 .hz-cell:hover{background:rgba(255,138,61,.12)}
 .hz-cell .k{font-family:var(--p-mono);letter-spacing:.06em;color:var(--hz-sub);
-  font-size:clamp(6px,calc(var(--u) * .15),10.5px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(10px,calc(var(--u) * .15),10.5px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hz-cell .v{font-family:var(--p-display);font-weight:700;letter-spacing:-.01em;
-  font-size:clamp(9px,calc(var(--u) * 0.299),21.8px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-size:clamp(10px,calc(var(--u) * 0.299),21.8px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hz-off{color:var(--hz-off)}
 
 /* Gaszeile */
 .hz-foot{flex:0 0 auto;display:flex;align-items:center;gap:calc(var(--u) * .16);cursor:pointer;min-width:0}
 .hz-foot .k{font-family:var(--p-mono);letter-spacing:.06em;color:var(--hz-sub);white-space:nowrap;
-  font-size:clamp(6px,calc(var(--u) * .15),10.5px)}
+  font-size:clamp(10px,calc(var(--u) * .15),10.5px)}
 .hz-foot .v{font-family:var(--p-display);font-weight:700;white-space:nowrap;
-  font-size:clamp(8.5px,calc(var(--u) * 0.2691),19.5px)}
+  font-size:clamp(10px,calc(var(--u) * 0.2691),19.5px)}
 .hz-foot svg{flex:1;min-width:0;height:clamp(14px,calc(var(--u) * .34),26px);display:block}
 .hz-spark{fill:none;stroke:var(--hz-accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
   vector-effect:non-scaling-stroke}
@@ -5364,7 +5688,7 @@ const CAMERA_CSS = `
 .cam-pill{flex:none;white-space:nowrap;display:flex;align-items:center;gap:.5em;cursor:pointer;
   padding:calc(var(--u) * .12) calc(var(--u) * .24);border-radius:999px;
   background:oklch(0.99 0.004 260 / 0.10);border:1px solid oklch(0.99 0.004 260 / 0.16);
-  font-family:var(--p-display);font-weight:600;font-size:clamp(9px,calc(var(--u) * .23),13px)}
+  font-family:var(--p-display);font-weight:600;font-size:clamp(10px,calc(var(--u) * .23),13px)}
 .cam-pill i{width:clamp(5px,calc(var(--u) * .12),7px);aspect-ratio:1;border-radius:50%;
   background:oklch(0.85 0.14 145)}
 .cam-pill.off i{background:oklch(0.65 0.02 260)}
@@ -5386,13 +5710,13 @@ const CAMERA_CSS = `
   font-size:clamp(12px,calc(var(--u) * 0.414),24.1px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-shot .cap span{display:block;font-family:var(--p-mono);color:oklch(0.82 0.05 310);margin-top:.2em;
-  font-size:clamp(8px,calc(var(--u) * .21),12px);
+  font-size:clamp(10px,calc(var(--u) * .21),12px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-ring{position:absolute;top:calc(var(--u) * .22);right:calc(var(--u) * .22);
   padding:calc(var(--u) * .1) calc(var(--u) * .2);border-radius:999px;
   background:oklch(0.72 0.16 45);color:oklch(0.16 0.03 45);
   font-family:var(--p-display);font-weight:700;letter-spacing:.06em;
-  font-size:clamp(8px,calc(var(--u) * .2),12px);animation:cam-ring 1.4s ease-in-out infinite}
+  font-size:clamp(10px,calc(var(--u) * .2),12px);animation:cam-ring 1.4s ease-in-out infinite}
 @keyframes cam-ring{0%,100%{opacity:1}50%{opacity:.45}}
 
 /* Ereignisliste */
@@ -5410,15 +5734,15 @@ const CAMERA_CSS = `
   border-radius:2px;background:var(--k)}
 .cam-ev .txt{flex:1;min-width:0}
 .cam-ev .txt b{display:block;font-family:var(--p-display);font-weight:600;line-height:1.25;
-  font-size:clamp(9.5px,calc(var(--u) * 0.2875),16.1px);
+  font-size:clamp(10px,calc(var(--u) * 0.2875),16.1px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-ev .txt span{display:block;font-family:var(--p-mono);color:oklch(0.82 0.05 310);
-  font-size:clamp(7.5px,calc(var(--u) * .19),11px);
+  font-size:clamp(10px,calc(var(--u) * .19),11px);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cam-ev time{flex:none;font-family:var(--p-mono);color:oklch(0.82 0.05 310);
-  font-size:clamp(8px,calc(var(--u) * .21),12px)}
+  font-size:clamp(10px,calc(var(--u) * .21),12px)}
 .cam-empty{margin:auto;text-align:center;color:oklch(0.82 0.05 310);
-  font-size:clamp(9px,calc(var(--u) * .23),13px)}
+  font-size:clamp(10px,calc(var(--u) * .23),13px)}
 
 /* Erst bei sehr schmalen Karten weicht die Liste. Eine Doppelkarte ist
    auf dem Handy oft nur rund 400 px breit — dort soll die Liste bleiben,
@@ -5430,7 +5754,6 @@ const CAMERA_CSS = `
 /* Zwischenstufe: Liste ohne Uhrzeit, damit Titel und Kamera lesbar bleiben */
 @container (max-width: 420px){
   .cam-ev{gap:calc(var(--u) * .16);padding:0 calc(var(--u) * .17)}
-  .cam-ev time{display:none}
   .cam-ev .txt span{display:none}
 }
 @media (prefers-reduced-motion: reduce){.cam-ring{animation:none}}
@@ -5457,7 +5780,18 @@ class PrismCameraCard extends PrismCard {
     if (this._shot) clearInterval(this._shot);
     const sec = Math.max(2, parseInt(this._config && this._config.refresh_interval) || 10);
     /* Neues Standbild anfordern, indem der Bild-URL ein Zeitstempel angehängt wird */
-    this._shot = setInterval(() => { this._shotTick = Date.now(); this._sig = null; this._render(); }, sec * 1000);
+    this._shot = setInterval(() => {
+      this._shotTick = Date.now();
+      const img = this.shadowRoot && this.shadowRoot.querySelector("#cam-shot img");
+      const st = this._hass && this._hass.states[this._config.camera];
+      const base = st && st.attributes.entity_picture;
+      if (!img || !base) { this._sig = null; this._render(); return; }
+      /* Erst laden, dann einsetzen — so flackert nichts */
+      const next = base + (base.includes("?") ? "&" : "?") + "prism=" + this._shotTick;
+      const pre = new Image();
+      pre.onload = () => { if (img.isConnected) img.src = next; };
+      pre.src = next;
+    }, sec * 1000);
   }
   onHass() { this._maybeEvents(); }
 
@@ -5526,8 +5860,8 @@ class PrismCameraCard extends PrismCard {
 
     const evts = this._events || [];
     const last = evts[0];
-    const fmtTime = (t) => new Date(t).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    const fmtFull = (t) => new Date(t).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const fmtTime = (t) => new Date(t).toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit" });
+    const fmtFull = (t) => new Date(t).toLocaleTimeString(PRISM_LOCALE, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
     const sub = cfg.subtitle || [
       this._sources().length ? this._sources().length + " Melder" : null,
@@ -5542,7 +5876,7 @@ class PrismCameraCard extends PrismCard {
     return {
       tone: "violet", ink: "#FFFFFF",
       fill: 0, quiet: false,
-      sig: [pic, ringing, online, sub, meta, evts.map((e) => e.t + e.kind).join("|")],
+      sig: [camSt && camSt.attributes.entity_picture ? "pic" : "none", ringing, online, sub, meta, evts.map((e) => e.t + e.kind).join("|")],
       head: "", foot: "",
       body: `<div class="cam">
         <div class="cam-hd">
@@ -5663,7 +5997,7 @@ const NEON_SHELL = `
   border-radius:10px;padding:calc(var(--p-pad) * .5) calc(var(--p-pad) * .45);min-width:0}
 .nx-tile[data-mi]{cursor:pointer}
 .nx-tile .k{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;opacity:.64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  text-transform:uppercase;opacity:.84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nx-tile .v{display:block;margin-top:.3em;font-family:var(--p-mono);font-weight:700;
   font-size:var(--t-value);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 
@@ -5676,7 +6010,7 @@ const NEON_SHELL = `
 
 /* Legende */
 .nx-leg{display:flex;flex-wrap:wrap;gap:.2em .9em;font-size:var(--t-label);font-weight:700;
-  letter-spacing:.05em;text-transform:uppercase;opacity:.72}
+  letter-spacing:.05em;text-transform:uppercase;opacity:.86}
 .nx-leg i{display:inline-block;width:.6em;height:.6em;border-radius:2px;margin-right:.4em}
 `;
 
@@ -6153,7 +6487,7 @@ const BALANCE_CSS = NEON_SHELL + NEON_FULL + `
   overflow:hidden;background:rgba(255,255,255,.08)}
 .bx-stack i{height:100%;transition:width .5s cubic-bezier(.2,.8,.2,1)}
 .bx-lg{display:flex;align-items:baseline;justify-content:space-between;gap:1em;
-  font-size:clamp(9.5px,calc(var(--u) * 0.144),12.5px);margin-bottom:.45em}
+  font-size:clamp(10px,calc(var(--u) * 0.144),12.5px);margin-bottom:.45em}
 .bx-lg .k{opacity:.8;font-weight:700}
 .bx-lg .v{font-family:var(--p-mono);font-weight:700;letter-spacing:-.02em;
   font-size:clamp(13px,calc(var(--u) * 0.4),21.8px)}
@@ -6166,7 +6500,7 @@ const BALANCE_CSS = NEON_SHELL + NEON_FULL + `
 .bx-q .t{min-width:0}
 .bx-q .t b{display:block;font-family:var(--p-mono);font-weight:700;font-size:var(--t-value);letter-spacing:-.03em}
 .bx-q .t span{display:block;margin-top:.2em;font-size:var(--t-label);font-weight:700;
-  letter-spacing:.08em;text-transform:uppercase;opacity:.64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  letter-spacing:.08em;text-transform:uppercase;opacity:.84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (prefers-reduced-motion: reduce){.bx-stack i{transition:none}}
 `;
 
@@ -6460,7 +6794,8 @@ const CONSUMERS_CSS = NEON_SHELL + NEON_FULL + `
 .cx-row .t{grid-column:1 / -1;height:4px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}
 .cx-row .t i{display:block;height:100%;border-radius:999px;background:var(--ac);
   transition:width .5s cubic-bezier(.2,.8,.2,1)}
-.cx-row.off .n,.cx-row.off .w{opacity:.45}
+.cx-row.off .n,.cx-row.off .w{opacity:.62}
+.cx-row{min-height:30px}
 @media (prefers-reduced-motion: reduce){.cx-row .t i{transition:none}}
 `;
 
@@ -6477,10 +6812,17 @@ class PrismConsumersCard extends PrismCard {
       const st = hass.states[id];
       if (!st) return;
       const kw = nxKw(hass, id);
-      rows.push({ id: id, name: friendly(hass, id, id), kw: kw === null ? 0 : kw, known: kw !== null });
+      /* „… Leistung" steht bei jedem Eintrag und sagt hier nichts */
+      const name = friendly(hass, id, id)
+        .replace(/\s+(Leistungsaufnahme|Leistung|Power|Stecker Leistung|Wirkleistung)$/i, "")
+        .replace(/\s+(Stecker|Plug)$/i, "").trim() || friendly(hass, id, id);
+      rows.push({ id: id, name: name, kw: kw === null ? 0 : kw, known: kw !== null });
     });
     rows.sort((a, b) => b.kw - a.kw);
-    return rows.slice(0, parseInt(cfg.max) || 5);
+    const live = rows.filter((r) => r.kw > 0.001);
+    this._idle = cfg.hide_idle === false ? 0 : rows.length - live.length;
+    const list = cfg.hide_idle === false || !live.length ? rows : live;
+    return list.slice(0, parseInt(cfg.max) || 5);
   }
 
   view(hass, cfg) {
@@ -6494,7 +6836,7 @@ class PrismConsumersCard extends PrismCard {
       fill: 0, quiet: false,
       sig: [rows.map((r) => r.id + ":" + r.kw.toFixed(3)).join("|"), total],
       head: this.head(cfg.icon || "mdi:format-list-bulleted", cfg.title,
-        total === null ? "" : esc(t.v + " " + t.u + " gesamt")),
+        total === null ? "" : esc(t.v + " " + t.u + " gesamt" + (this._idle ? " · " + this._idle + " aus" : ""))),
       body: rows.length
         ? `<div class="cx-rows">${rows.map((r) => {
             const p = nxPower(r.kw);
@@ -6755,7 +7097,7 @@ const SAUG_SHELL = `
 .card.quiet .sg-tile{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.14)}
 .sg-tile[data-mi]{cursor:pointer}
 .sg-tile .k{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  text-transform:uppercase;opacity:.84;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sg-tile .v{display:block;margin-top:.3em;font-family:var(--p-mono);font-weight:700;
   font-size:var(--t-value);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sg-empty{margin:auto;font-size:clamp(10px,calc(var(--u) * 0.192),13px);opacity:.6;text-align:center}
@@ -6810,7 +7152,7 @@ const ROOMS_CSS = SAUG_SHELL + SAUG_FULL + `
 .rm b{font-size:var(--t-body);font-weight:700;letter-spacing:-.01em;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .rm i{font-family:var(--p-mono);font-style:normal;font-size:var(--t-label);font-weight:700;
-  letter-spacing:.06em;text-transform:uppercase;opacity:.6;white-space:nowrap;
+  letter-spacing:.06em;text-transform:uppercase;opacity:.82;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:100%}
 /* Ausgewählt wird gefüllt, nicht nur umrandet — auf einer Verlaufsfläche
    trägt allein der Helligkeitsunterschied. */
@@ -6822,14 +7164,19 @@ const ROOMS_CSS = SAUG_SHELL + SAUG_FULL + `
 
 .rm-acts{display:flex;gap:4px;margin-top:.3em}
 .rm-act{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:.35em;
-  font-family:var(--p-mono);font-weight:700;font-size:var(--t-label);letter-spacing:.08em;
+  font-family:var(--p-mono);font-weight:700;font-size:var(--t-body);letter-spacing:.03em;
   text-transform:uppercase;white-space:nowrap;overflow:hidden;
-  padding:.62em .4em;border-radius:999px;cursor:pointer;color:inherit;
+  padding:.85em .4em;min-height:36px;border-radius:999px;cursor:pointer;color:inherit;
   background:rgba(11,10,20,.16);border:1px solid rgba(11,10,20,.12);transition:background .16s}
 .card.quiet .rm-act{background:rgba(127,127,127,.18);border-color:rgba(127,127,127,.16)}
 .rm-act ha-icon{--mdc-icon-size:1.25em;flex:none}
 .rm-act.go{background:#0B0A14;border-color:#0B0A14;color:#F4F7FA;flex:1.5 1 0}
-.rm-act[disabled]{opacity:.42;cursor:default}
+.rm-act[disabled]{opacity:.6;cursor:default}
+.rm-act.arm{background:#B45309;border-color:#B45309;color:#fff}
+.rm{min-height:44px}
+.card.inv .rm,.card.inv .rm-act{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.16)}
+.card.inv .rm.on,.card.inv .rm-act.go{background:#F4F7FA;border-color:#F4F7FA;color:#0B0A14}
+.card.inv .rm-act.arm{background:#B45309;border-color:#B45309;color:#fff}
 `;
 
 class PrismRoomsCard extends PrismCard {
@@ -6894,7 +7241,7 @@ class PrismRoomsCard extends PrismCard {
     return {
       tone: cfg.tone || "violet",
       fill: 0, quiet: false,
-      sig: [this._sel.join(","), rooms.map((r) => r.id + r.name).join("|"), vstate, here,
+      sig: [this._sel.join(","), !!this._armed, rooms.map((r) => r.id + r.name).join("|"), vstate, here,
         rooms.map((r) => (r.info_entity ? stateOf(hass, r.info_entity) : "")).join("|")],
       head: this.head(cfg.icon || "mdi:floor-plan", cfg.title, esc(status)),
       body: rooms.length
@@ -6913,10 +7260,11 @@ class PrismRoomsCard extends PrismCard {
             ? "Keine Räume gefunden — bei Roborock müssen sie konfiguriert werden."
             : "Keine Staubsaugerentität gewählt."}</div>`,
       foot: `<div class="rm-acts">
-          <button type="button" class="rm-act go" id="rm-go"${picked.length ? "" : " disabled"}>
-            <ha-icon icon="mdi:play"></ha-icon>${picked.length
-              ? esc(picked.length + (picked.length === 1 ? " Raum starten" : " Räume starten"))
-              : "Räume wählen"}</button>
+          <button type="button" class="rm-act go${this._armed && picked.length ? " arm" : ""}" id="rm-go"${picked.length ? "" : " disabled"}>
+            <ha-icon icon="${this._armed && picked.length ? "mdi:check" : "mdi:play"}"></ha-icon>${picked.length
+              ? (this._armed ? "Jetzt starten?"
+                : esc(picked.length + (picked.length === 1 ? " Raum starten" : " Räume starten")))
+              : "Räume antippen"}</button>
           <button type="button" class="rm-act" id="rm-all">
             <ha-icon icon="mdi:select-all"></ha-icon>${this._sel.length === rooms.length && rooms.length ? "Keiner" : "Alles"}</button>
           <button type="button" class="rm-act" id="rm-stop">
@@ -6962,11 +7310,26 @@ class PrismRoomsCard extends PrismCard {
         const id = parseInt(el.getAttribute("data-room"));
         const i = this._sel.indexOf(id);
         if (i >= 0) this._sel.splice(i, 1); else this._sel.push(id);
+        this._armed = false;
         this._sig = null;
         this._render();
       });
     });
-    this._on("rm-go", () => this._start());
+    /* Zwei Tipps bis zum Start: der erste macht den Knopf scharf, der
+       zweite innerhalb von fünf Sekunden startet. confirm_start: false
+       schaltet das ab. */
+    this._on("rm-go", () => {
+      if (!this._sel.length) return;
+      if (cfg.confirm_start === false || this._armed) {
+        clearTimeout(this._armTimer); this._armed = false;
+        this._start();
+        return;
+      }
+      this._armed = true;
+      this._sig = null; this._render();
+      clearTimeout(this._armTimer);
+      this._armTimer = setTimeout(() => { this._armed = false; this._sig = null; this._render(); }, 5000);
+    });
     this._on("rm-all", () => {
       const rooms = this._rooms(this._hass, cfg);
       this._sel = this._sel.length === rooms.length ? [] : rooms.map((r) => r.id);
@@ -7029,16 +7392,20 @@ const SELECT_CSS = SAUG_SHELL + `
 .sx-rows{display:flex;flex-direction:column;gap:calc(var(--p-gap) * .8);justify-content:center;min-height:0}
 .sx-row{min-width:0}
 .sx-row > span{display:block;font-size:var(--t-label);font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;opacity:.62;margin-bottom:.3em;white-space:nowrap;
+  text-transform:uppercase;opacity:.86;margin-bottom:.3em;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 .sx-seg{display:flex;gap:2px;background:rgba(11,10,20,.13);border:1px solid rgba(11,10,20,.10);
   border-radius:999px;padding:2px}
 .card.quiet .sx-seg{background:rgba(127,127,127,.16);border-color:rgba(127,127,127,.14)}
 .sx-seg button{flex:1 1 0;min-width:0;text-align:center;border:0;background:none;cursor:pointer;
   color:inherit;font-family:var(--p-mono);font-weight:700;font-size:var(--t-label);
-  letter-spacing:.04em;padding:.5em .2em;border-radius:999px;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;opacity:.72;transition:background .16s,opacity .16s}
+  letter-spacing:.02em;padding:.72em .2em;min-height:30px;border-radius:999px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;opacity:.92;transition:background .16s,opacity .16s}
+.sx-seg button:hover{background:rgba(127,127,127,.18)}
 .sx-seg button.on{background:#0B0A14;color:#F4F7FA;opacity:1}
+.card.inv .sx-seg{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.16)}
+.card.inv .sx-seg button.on{background:#F4F7FA;color:#0B0A14}
+.card.inv .sg-tile{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.14)}
 `;
 
 class PrismSelectCard extends PrismCard {
