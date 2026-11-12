@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v56";
+const PRISM_VERSION = "v56.1";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1164,6 +1164,18 @@ class PrismCard extends HTMLElement {
     const solo = !v.head && !v.foot && !dbl;
     const free = this._config.shape === "free";
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    /* Die Karte bezieht ihre Höhe aus dem Inhalt. Während der Inhalt ersetzt
+       wird, rechnet Safari sie kurz mit Höhe null — die Seite wird kürzer und
+       die Ansicht rutscht nach oben. Darum bleibt die bisherige Höhe stehen,
+       bis das neue Bild gezeichnet ist. */
+    const pinned = this.offsetHeight;
+    if (pinned > 0) {
+      this.style.minHeight = pinned + "px";
+      const token = this._pin = {};
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (this._pin === token) { this.style.minHeight = ""; this._pin = null; }
+      }));
+    }
     this.shadowRoot.innerHTML =
       `<style>${BASE_CSS}${this.constructor.css || ""}${FIX_CSS}${this._paintCSS(v)}</style>
        <div class="card${v.quiet ? " quiet" : ""}${dbl ? " dbl" : ""}${bar ? " has-bar" : ""}${solo ? " solo" : ""}${free ? " free" : ""}${v.cover ? " on-cover" : ""}${dark ? " inv" : ""}"
