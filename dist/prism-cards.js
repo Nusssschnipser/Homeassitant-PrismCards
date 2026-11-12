@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v55.1";
+const PRISM_VERSION = "v56";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -5645,19 +5645,51 @@ register("prism-heizung-card", PrismHeizungCard, {
 /* Ereignistyp aus Entität und Name erraten */
 function camEventKind(id, label) {
   const t = (id + " " + (label || "")).toLowerCase();
-  if (/klingel|ring|besucher|doorbell|chime/.test(t)) return "ring";
-  if (/person|vehicle|fahrzeug|visitor|face/.test(t)) return "person";
+  if (/klingel|ring|besucher|visitor|doorbell|chime/.test(t)) return "ring";
+  if (/person|people|face|gesicht/.test(t)) return "person";
+  if (/vehicle|fahrzeug|car\b/.test(t)) return "vehicle";
+  if (/tier|pet|animal|hund|katze/.test(t)) return "pet";
   if (/paket|package|delivery/.test(t)) return "package";
-  if (/motion|bewegung|tier|pet|animal/.test(t)) return "motion";
+  if (/motion|bewegung/.test(t)) return "motion";
   return "other";
 }
 const CAM_KIND = {
-  ring:    { color: "oklch(0.72 0.16 45)",  word: "Klingel gedrückt", icon: "mdi:bell-ring" },
-  person:  { color: "oklch(0.72 0.16 250)", word: "Person erkannt", icon: "mdi:account" },
-  motion:  { color: "oklch(0.72 0.16 145)", word: "Bewegung erkannt", icon: "mdi:motion-sensor" },
-  package: { color: "oklch(0.72 0.16 320)", word: "Paket abgelegt", icon: "mdi:package-variant-closed" },
+  ring:    { color: "oklch(0.72 0.16 45)",  word: "Klingel", icon: "mdi:bell-ring" },
+  person:  { color: "oklch(0.72 0.16 250)", word: "Person", icon: "mdi:account" },
+  vehicle: { color: "oklch(0.74 0.14 200)", word: "Fahrzeug", icon: "mdi:car" },
+  pet:     { color: "oklch(0.78 0.15 95)",  word: "Haustier", icon: "mdi:paw" },
+  package: { color: "oklch(0.72 0.16 320)", word: "Paket", icon: "mdi:package-variant-closed" },
+  motion:  { color: "oklch(0.72 0.16 145)", word: "Bewegung", icon: "mdi:motion-sensor" },
   other:   { color: "oklch(0.72 0.02 260)", word: "Ereignis", icon: "mdi:cctv" },
 };
+/* Was die Kamera gleichzeitig meldet, gehört zusammen: „Bewegung" und kurz
+   darauf „Person" sind ein Ereignis. Die Liste nennt dann, was erkannt
+   wurde — die allgemeine Bewegung bleibt nur stehen, wenn sonst nichts da ist. */
+const CAM_RANK = ["ring", "person", "vehicle", "pet", "package", "other", "motion"];
+const CAM_GROUP_MS = 30 * 1000;
+function camGroupEvents(list) {
+  const asc = list.slice().sort((a, b) => a.t - b.t);
+  const groups = [];
+  let g = null;
+  asc.forEach((e) => {
+    if (!g || e.t - g.t > CAM_GROUP_MS) { g = { t: e.t, parts: [] }; groups.push(g); }
+    if (!g.parts.some((p) => p.kind === e.kind)) g.parts.push(e);
+  });
+  return groups.map((grp) => {
+    const parts = grp.parts.slice().sort((a, b) => CAM_RANK.indexOf(a.kind) - CAM_RANK.indexOf(b.kind));
+    const specific = parts.filter((p) => p.kind !== "motion");
+    const shown = specific.length ? specific : parts;
+    const names = [...new Set(shown.map((p) => p.cam).filter(Boolean))];
+    return {
+      t: grp.t,
+      kind: shown[0].kind,
+      kinds: shown.map((p) => p.kind),
+      word: shown.map((p) => (CAM_KIND[p.kind] || CAM_KIND.other).word).join(" · "),
+      cam: names.join(" · "),
+      entity: shown[0].entity,
+    };
+  }).reverse();
+}
 
 /* ---------- Popup ----------
    Ein eigenes Fenster über dem Dashboard, für den Videoclip eines
@@ -6044,15 +6076,15 @@ class PrismCameraCard extends PrismCard {
             list.push({
               t: ts,
               kind: s.type || camEventKind(s.entity, s.name),
-              cam: s.name || friendly(hass, s.entity),
+              /* Zweite Zeile: eigener Name des Melders, sonst die Kamera */
+              cam: s.name || cfg.name || friendly(hass, cfg.camera),
               entity: s.camera || s.entity,
             });
           }
           prev = state;
         }
       }
-      list.sort((a, b) => b.t - a.t);
-      this._events = list.slice(0, Math.max(1, parseInt(cfg.max) || 20));
+      this._events = camGroupEvents(list).slice(0, Math.max(1, parseInt(cfg.max) || 20));
       this._sig = null;
       this._render();
       this._prefetchClips();
@@ -6080,7 +6112,7 @@ class PrismCameraCard extends PrismCard {
     ].filter(Boolean).join(" · ");
 
     const meta = ringing ? "Es klingelt"
-      : last ? (CAM_KIND[last.kind] || CAM_KIND.other).word + " · " + fmtFull(last.t)
+      : last ? last.word + " · " + fmtFull(last.t)
       : (camSt ? "Bereit" : "Keine Verbindung");
 
     /* Der Kopf öffnet den Sicherheitsverlauf, solange nichts anderes eingestellt ist */
@@ -6089,7 +6121,7 @@ class PrismCameraCard extends PrismCard {
     return {
       tone: "violet", ink: "#FFFFFF",
       fill: 0, quiet: false,
-      sig: [camSt && camSt.attributes.entity_picture ? "pic" : "none", ringing, online, sub, meta, evts.map((e) => e.t + e.kind).join("|")],
+      sig: [camSt && camSt.attributes.entity_picture ? "pic" : "none", ringing, online, sub, meta, evts.map((e) => e.t + e.word).join("|")],
       head: "", foot: "",
       body: `<div class="cam">
         <div class="cam-hd">
@@ -6120,7 +6152,7 @@ class PrismCameraCard extends PrismCard {
               const k = CAM_KIND[e.kind] || CAM_KIND.other;
               return `<div class="cam-ev" data-i="${i}" style="--k:${k.color}">
                 <i></i>
-                <span class="txt"><b>${esc(k.word)}</b><span>${esc(e.cam)}</span></span>
+                <span class="txt"><b>${esc(e.word)}</b><span>${esc(e.cam)}</span></span>
                 <time>${esc(fmtTime(e.t))}</time>
               </div>`;
             }).join("")
@@ -6320,7 +6352,7 @@ class PrismCameraCard extends PrismCard {
     const k = CAM_KIND[ev.kind] || CAM_KIND.other;
     const when = new Date(ev.t).toLocaleString(PRISM_LOCALE, {
       weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const pop = this._newPop({ title: k.word, sub: ev.cam + " · " + when, icon: k.icon, color: k.color });
+    const pop = this._newPop({ title: ev.word || k.word, sub: ev.cam + " · " + when, icon: k.icon, color: k.color });
     pop.body.innerHTML = `<div class="pp-stage"><div class="pp-msg"><span class="pp-spin"></span>
       <span>Clip wird gesucht …</span></div></div><div class="pp-ft"></div>`;
     try {
