@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v55";
+const PRISM_VERSION = "v55.1";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -5848,6 +5848,8 @@ function camPickClip(list, w) {
   list.forEach((c) => { if (c.b < w && w - c.b <= 20 * S && (!best || c.b > best.b)) best = c; });
   return best;
 }
+/* Gemerkte Clip-Ordner und Tageslisten, je Kamera und Auflösung */
+const CAM_CLIPS = { dirs: {}, days: {} };
 function camDuration(ms) {
   const s = Math.max(0, Math.round(ms / 1000));
   return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " min";
@@ -5971,7 +5973,6 @@ class PrismCameraCard extends PrismCard {
     if (!config || !config.camera) throw new Error("prism-camera-card: 'camera' ist Pflicht — die Kamera der Türklingel.");
     super.setConfig(config);
     this._events = null; this._evTs = 0; this._shotTick = 0;
-    this._clipDir = null; this._clipDays = null;
     this._startShot();
   }
   connectedCallback() { this._startShot(); }
@@ -6054,6 +6055,7 @@ class PrismCameraCard extends PrismCard {
       this._events = list.slice(0, Math.max(1, parseInt(cfg.max) || 20));
       this._sig = null;
       this._render();
+      this._prefetchClips();
     } catch (e) { this._events = []; }
   }
 
@@ -6210,9 +6212,21 @@ class PrismCameraCard extends PrismCard {
   _browse(id) {
     return this._hass.callWS({ type: "media_source/browse_media", media_content_id: id });
   }
+  /* Ordner und Tageslisten bleiben über die Lebensdauer der Seite erhalten —
+     jede Abfrage geht bis zur Kamera und kostet Sekunden. */
+  _clipKey() {
+    const cfg = this._config;
+    return cfg.camera + "|" + (cfg.clip_resolution === "main" ? "main" : "sub");
+  }
   /* Ordner der Kamera in der gewünschten Auflösung; „sub" ist „Low resolution" */
-  async _clipFolder() {
-    if (this._clipDir) return this._clipDir;
+  _clipFolder() {
+    const key = this._clipKey();
+    if (!CAM_CLIPS.dirs[key]) {
+      CAM_CLIPS.dirs[key] = this._findClipFolder().catch((e) => { delete CAM_CLIPS.dirs[key]; throw e; });
+    }
+    return CAM_CLIPS.dirs[key];
+  }
+  async _findClipFolder() {
     const cfg = this._config, hass = this._hass;
     const root = await this._browse("media-source://reolink");
     const cams = (root.children || []).filter((c) => c.can_expand);
@@ -6222,51 +6236,87 @@ class PrismCameraCard extends PrismCard {
       || cams.find((c) => mine && dev((c.thumbnail || "").split("?")[0].split("/").pop()) === mine)
       || (cams.length === 1 ? cams[0] : null);
     if (!cam) throw new Error("Diese Kamera hat unter Medien → Reolink keine Aufnahmen.");
-    const res = await this._browse(cam.media_content_id);
-    const kids = res.children || [];
-    const isDay = (c) => /^\d{4}\D\d{1,2}\D\d{1,2}$/.test(c.title || "");
-    if (kids.some(isDay)) { this._clipDir = cam.media_content_id; return this._clipDir; }
     const want = cfg.clip_resolution === "main" ? "main" : "sub";
-    const dir = kids.find((c) => String(c.media_content_id).endsWith("|" + want))
-      || kids.find((c) => (want === "main" ? /high|hoch/i : /low|niedrig/i).test(c.title || ""))
-      || kids[0];
-    if (!dir) throw new Error("Unter Medien → Reolink liegt für diese Kamera kein Ordner.");
-    this._clipDir = dir.media_content_id;
-    return this._clipDir;
+    /* Die Kennungen folgen einem festen Muster — das spart zwei Abfragen */
+    const m = /^media-source:\/\/reolink\/CAM\|(.+)$/.exec(String(cam.media_content_id));
+    if (m) return { direct: "media-source://reolink/DAY|" + m[1] + "|" + want, cam: cam.media_content_id, want };
+    return { cam: cam.media_content_id, want };
   }
-  /* Alle Clips eines Tages; w ist die Wanduhr der Kamera als Pseudo-UTC */
-  async _clipsOfDay(w) {
-    const d = new Date(w);
-    const y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, day = d.getUTCDate();
-    const key = y + "-" + mo + "-" + day;
-    this._clipDays = this._clipDays || {};
-    const hit = this._clipDays[key];
-    if (hit && Date.now() - hit.ts < 30 * 1000) return hit.list;
-    const days = await this._browse(await this._clipFolder());
-    const folder = (days.children || []).find((c) => {
+  /* Der lange Weg durch die Ordner, falls das Muster einmal nicht passt */
+  async _walkToDay(dir, y, mo, day) {
+    const isDay = (c) => /^\d{4}\D\d{1,2}\D\d{1,2}$/.test(c.title || "");
+    let node = await this._browse(dir.cam);
+    let kids = node.children || [];
+    if (!kids.some(isDay)) {
+      const res = kids.find((c) => String(c.media_content_id).endsWith("|" + dir.want))
+        || kids.find((c) => (dir.want === "main" ? /high|hoch/i : /low|niedrig/i).test(c.title || ""))
+        || kids[0];
+      if (!res) return null;
+      node = await this._browse(res.media_content_id);
+      kids = node.children || [];
+    }
+    const folder = kids.find((c) => {
       const m = /^(\d{4})\D(\d{1,2})\D(\d{1,2})$/.exec(c.title || "");
       return m && +m[1] === y && +m[2] === mo && +m[3] === day;
     });
-    let list = [];
-    if (folder) {
-      const files = await this._browse(folder.media_content_id);
-      list = (files.children || []).map((c) => {
+    return folder ? this._browse(folder.media_content_id) : null;
+  }
+  /* Alle Clips eines Tages; w ist die Wanduhr der Kamera als Pseudo-UTC.
+     Liefert die gemerkte Liste, solange fresh nichts anderes verlangt. */
+  _clipsOfDay(w, fresh) {
+    const d = new Date(w);
+    const y = d.getUTCFullYear(), mo = d.getUTCMonth() + 1, day = d.getUTCDate();
+    const key = this._clipKey() + "|" + y + "-" + mo + "-" + day;
+    const hit = CAM_CLIPS.days[key];
+    if (hit && hit.pending) return hit.pending;
+    if (hit && hit.list && !fresh) return Promise.resolve(hit.list);
+    const load = (async () => {
+      const dir = await this._clipFolder();
+      let files = null;
+      if (dir.direct) {
+        try { files = await this._browse(dir.direct + "|" + y + "|" + mo + "|" + day); } catch (e) { files = null; }
+      }
+      if (!files) files = await this._walkToDay(dir, y, mo, day);
+      return ((files && files.children) || []).map((c) => {
         const m = /\|(\d{14})\|(\d{14})$/.exec(String(c.media_content_id));
         return m && c.can_play ? { id: c.media_content_id, title: c.title || "", a: camStamp(m[1]), b: camStamp(m[2]) } : null;
       }).filter(Boolean);
-    }
-    this._clipDays[key] = { ts: Date.now(), list };
-    return list;
+    })();
+    const entry = CAM_CLIPS.days[key] = { ts: Date.now(), list: hit && hit.list, pending: null };
+    entry.pending = load.then((list) => { entry.list = list; entry.ts = Date.now(); entry.pending = null; return list; },
+      (e) => { entry.pending = null; if (!entry.list) delete CAM_CLIPS.days[key]; throw e; });
+    return entry.pending;
   }
-  async _findClip(t) {
+  _clipAge(w) {
+    const d = new Date(w);
+    const hit = CAM_CLIPS.days[this._clipKey() + "|" + d.getUTCFullYear() + "-" + (d.getUTCMonth() + 1) + "-" + d.getUTCDate()];
+    return hit && hit.list && !hit.pending ? Date.now() - hit.ts : (hit ? 0 : Infinity);
+  }
+  async _findClip(t, fresh) {
     const w = camWall(t, this._hass.config && this._hass.config.time_zone);
-    let clip = camPickClip(await this._clipsOfDay(w), w);
+    let clip = camPickClip(await this._clipsOfDay(w, fresh), w);
+    /* Nicht in der gemerkten Liste: einmal frisch bei der Kamera nachfragen */
+    if (!clip && this._clipAge(w) > 15 * 1000) clip = camPickClip(await this._clipsOfDay(w, true), w);
     /* Kurz nach Mitternacht liegt der Clip noch im Ordner des Vortags */
     if (!clip && w % 86400000 < 10 * 60 * 1000) clip = camPickClip(await this._clipsOfDay(w - 86400000), w);
     return clip ? Object.assign({ w }, clip) : null;
   }
+  /* Die Liste von heute im Hintergrund holen, damit ein Tipp sofort den Clip
+     öffnet. Erneuert wird nur, wenn ein Ereignis jünger ist als die Liste. */
+  _prefetchClips() {
+    const cfg = this._config, hass = this._hass;
+    if (cfg.clips === false || !hass || !(this._events && this._events.length)) return;
+    const tz = hass.config && hass.config.time_zone;
+    const age = this._clipAge(camWall(Date.now(), tz));
+    const newest = this._events[0].t;
+    if (age !== Infinity && !(age > 60 * 1000 && newest > Date.now() - age - 90 * 1000)) return;
+    this._clipsOfDay(camWall(Date.now(), tz), true).catch(() => {});
+    /* Ältere Ereignisse der Liste liegen im Ordner von gestern */
+    const oldest = camWall(this._events[this._events.length - 1].t, tz);
+    if (this._clipAge(oldest) === Infinity) this._clipsOfDay(oldest).catch(() => {});
+  }
 
-  async _openClip(ev) {
+  async _openClip(ev, fresh) {
     const k = CAM_KIND[ev.kind] || CAM_KIND.other;
     const when = new Date(ev.t).toLocaleString(PRISM_LOCALE, {
       weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -6274,7 +6324,7 @@ class PrismCameraCard extends PrismCard {
     pop.body.innerHTML = `<div class="pp-stage"><div class="pp-msg"><span class="pp-spin"></span>
       <span>Clip wird gesucht …</span></div></div><div class="pp-ft"></div>`;
     try {
-      const clip = await this._findClip(ev.t);
+      const clip = await this._findClip(ev.t, fresh);
       if (!pop.open) return;
       if (!clip) { this._clipMissing(pop, ev); return; }
       const media = await this._hass.callWS({ type: "media_source/resolve_media", media_content_id: clip.id });
@@ -6296,10 +6346,7 @@ class PrismCameraCard extends PrismCard {
         <button class="pp-pill" type="button" data-a="retry">Erneut suchen</button>
         <button class="pp-pill" type="button" data-a="live">Live-Bild</button>
       </div></div>`;
-    stage.querySelector('[data-a="retry"]').addEventListener("click", () => {
-      this._clipDays = null;
-      this._openClip(ev);
-    });
+    stage.querySelector('[data-a="retry"]').addEventListener("click", () => this._openClip(ev, true));
     stage.querySelector('[data-a="live"]').addEventListener("click", () => {
       pop.close();
       this._moreInfo(this._config.camera);
