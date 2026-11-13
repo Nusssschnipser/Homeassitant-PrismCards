@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v57.1";
+const PRISM_VERSION = "v57.2";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1524,6 +1524,22 @@ class PrismLightCard extends PrismCard {
     const root = pop.body;
     let dragging = null;
 
+    /* Räume mit Licht stehen oben, auch wenn sich das bei offenem Fenster
+       ändert. Während ein Regler gezogen wird, bleibt alles an seinem Platz. */
+    const resort = () => {
+      if (dragging) return;
+      const list = root.querySelector(".lp-list");
+      const secs = [...list.querySelectorAll(".lp-room")];
+      const name = (sec) => order[+sec.getAttribute("data-r")];
+      const want = secs.slice().sort((a, b) =>
+        (a.classList.contains("lit") ? 0 : 1) - (b.classList.contains("lit") ? 0 : 1) || name(a).localeCompare(name(b), "de"));
+      if (want.every((sec, i) => sec === secs[i])) return;
+      const active = root.getRootNode().activeElement;
+      const hint = list.querySelector(".lp-hint");
+      want.forEach((sec) => list.insertBefore(sec, hint));
+      if (active && active.isConnected && active.focus) active.focus({ preventScroll: true });
+    };
+
     pop.sync = () => {
       let total = 0;
       root.querySelectorAll(".lp-room").forEach((sec) => {
@@ -1554,6 +1570,7 @@ class PrismLightCard extends PrismCard {
       });
       pop.setSub(total ? total + " von " + ids.length + " an" : "Alle " + ids.length + " aus");
       offBtn.disabled = total === 0;
+      resort();
     };
 
     const setOn = (id, on) => {

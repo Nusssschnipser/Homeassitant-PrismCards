@@ -2,7 +2,7 @@
 
 A set of 18 Lovelace cards for Home Assistant. One shared visual language, one shared type scale, no dependencies, no build step — a single JavaScript file.
 
-![Version](https://img.shields.io/badge/version-v57.1-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-v57.2-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Language note:** the card interface is currently **German only** — status words,
 > labels, weekdays and the visual editor. The code is fully functional in any
