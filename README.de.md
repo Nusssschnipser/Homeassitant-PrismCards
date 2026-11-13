@@ -4,7 +4,7 @@
 
 Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprache, eine gemeinsame Größenskala, keine Abhängigkeiten und kein Build-Schritt — eine einzige JavaScript-Datei.
 
-![Version](https://img.shields.io/badge/version-v58-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
+![Version](https://img.shields.io/badge/version-v58.1-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
 
 ---
 

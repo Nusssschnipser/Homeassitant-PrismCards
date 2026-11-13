@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v58";
+const PRISM_VERSION = "v58.1";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1314,6 +1314,17 @@ dialog.lp{--amber:var(--prism-theme-amber,#FFC24B);--rose:var(--prism-theme-rose
 .lp-sw[aria-checked="true"] i{transform:translateX(20px)}
 .lp-rows{display:none;flex-direction:column;gap:6px;padding:0 0 12px}
 .lp-room.open .lp-rows{display:flex}
+/* Szenen des Raums: eine Reihe Tasten über den Lampen */
+.lp-sc{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 4px}
+.lp-scene{display:flex;align-items:center;gap:7px;min-height:42px;max-width:100%;padding:0 15px 0 11px;border:0;border-radius:999px;
+  cursor:pointer;font:inherit;font-weight:700;font-size:14px;color:inherit;
+  background:color-mix(in srgb,var(--amber) 22%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--amber) 70%,transparent);
+  transition:background .2s,color .2s}
+.lp-scene span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-scene ha-icon{flex:none;--mdc-icon-size:19px}
+.lp-scene:hover{background:color-mix(in srgb,var(--amber) 34%,transparent)}
+.lp-scene.fired{background:linear-gradient(120deg,var(--amber),var(--rose));color:var(--ink);box-shadow:none}
+.lp-scene:focus-visible{outline:2px solid var(--primary-color,#8b5cf6);outline-offset:2px}
 /* Eine Lampe: die ganze Zeile ist der Regler */
 .lp-l{display:flex;align-items:stretch;gap:6px;--lc:var(--amber)}
 .lp-s{position:relative;flex:1;min-width:0;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px 0 14px;
@@ -1472,6 +1483,24 @@ class PrismLightCard extends PrismCard {
       return n.charAt(0).toUpperCase() + n.slice(1);
     };
 
+    /* Szenen gehören zu ihrem Bereich. Ohne Bereich zählt der Raum, in dem
+       alle Lampen der Szene hängen. Gelesen wird bei jedem Öffnen neu —
+       eine neu angelegte Szene erscheint von selbst. */
+    const exclIds = labelIdsFor(this._hass, this._config.exclude_label);
+    const scenes = new Map();
+    Object.keys(this._hass.states).filter((id) => id.startsWith("scene.")).forEach((id) => {
+      if (isHidden(this._hass, id) || entityLabels(this._hass, id).some((l) => exclIds.has(l))) return;
+      let room = areaNameFor(this._hass, id);
+      if (!room) {
+        const own = [...new Set(toList(st(id).attributes.entity_id).filter((m) => ids.includes(m)).map(roomOf))];
+        if (own.length === 1) room = own[0];
+      }
+      if (!room || !rooms.has(room)) return;
+      if (!scenes.has(room)) scenes.set(room, []);
+      scenes.get(room).push(id);
+    });
+    scenes.forEach((list) => list.sort((a, b) => friendly(this._hass, a).localeCompare(friendly(this._hass, b), "de")));
+
     const pop = this._pop = prismPopup({
       title: this._config.title || "Licht", sub: "", icon: "mdi:lightbulb-group", width: 540,
       cls: "lp", css: LIGHTS_CSS,
@@ -1496,7 +1525,10 @@ class PrismLightCard extends PrismCard {
           </button>
           <button class="lp-sw" type="button" role="switch" aria-label="${esc("Alle Lichter in " + room)}"><i></i></button>
         </div>
-        <div class="lp-rows">${rooms.get(room).map((id) => `
+        <div class="lp-rows">${scenes.has(room) ? `<div class="lp-sc" role="group" aria-label="${esc("Szenen in " + room)}">${
+          scenes.get(room).map((id) => `<button class="lp-scene" type="button" data-scene="${esc(id)}">
+            <ha-icon icon="${esc(st(id).attributes.icon || "mdi:palette")}"></ha-icon><span>${esc(label(id, room))}</span></button>`).join("")}</div>` : ""}
+          ${rooms.get(room).map((id) => `
           <div class="lp-l${dimmable(id) ? " dim" : ""}" data-id="${esc(id)}">
             <div class="lp-s" tabindex="0" role="${dimmable(id) ? "slider" : "switch"}" aria-label="${esc(label(id, room))}">
               <i class="fill"></i>
@@ -1507,7 +1539,7 @@ class PrismLightCard extends PrismCard {
           </div>`).join("")}</div>
       </section>`;
     }).join("")}
-      <p class="lp-hint">Tippen schaltet, ziehen dimmt. Die drei Punkte öffnen Farbe und Details.</p></div>`;
+      <p class="lp-hint">Tippen schaltet, ziehen dimmt. Die drei Punkte öffnen Farbe und Details.${scenes.size ? " Szenen stehen oben in ihrem Raum." : ""}</p></div>`;
 
     /* Nach einer Bedienung zählt kurz der eigene Wert — sonst springt der
        Regler zurück, bis Home Assistant den neuen Zustand meldet. */
@@ -1598,6 +1630,12 @@ class PrismLightCard extends PrismCard {
       target.forEach((id) => hold(id, !on.length));
       this._hass.callService("homeassistant", on.length ? "turn_off" : "turn_on", { entity_id: target });
       pop.sync();
+    }));
+    root.querySelectorAll(".lp-scene").forEach((b) => b.addEventListener("click", () => {
+      this._hass.callService("scene", "turn_on", { entity_id: b.getAttribute("data-scene") });
+      /* kurze Bestätigung, dass der Tipp angekommen ist */
+      b.classList.add("fired");
+      setTimeout(() => b.classList.remove("fired"), 1400);
     }));
     root.querySelectorAll(".lp-more").forEach((b) => b.addEventListener("click", () => {
       const id = b.closest(".lp-l").getAttribute("data-id");
