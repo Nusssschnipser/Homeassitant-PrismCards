@@ -2,7 +2,7 @@
 
 A set of 18 Lovelace cards for Home Assistant. One shared visual language, one shared type scale, no dependencies, no build step — a single JavaScript file.
 
-![Version](https://img.shields.io/badge/version-v57.2-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
+![Version](https://img.shields.io/badge/version-v58-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > **Language note:** the card interface is currently **German only** — status words,
 > labels, weekdays and the visual editor. The code is fully functional in any
@@ -34,7 +34,7 @@ A set of 18 Lovelace cards for Home Assistant. One shared visual language, one s
 > every update — otherwise the cache keeps serving the old version.
 
 **Check which version is loaded:** the browser console prints a line on load,
-`PRISM-CARDS v57 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
+`PRISM-CARDS v58 · 15 Quadrate + 11 Doppel + 2 Mini`. You can also type
 `PRISM_VERSION` in the console.
 
 **Fonts (optional):** Since v54 the cards load their fonts locally instead of

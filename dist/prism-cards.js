@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v57.2";
+const PRISM_VERSION = "v58";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1681,6 +1681,63 @@ register("prism-light-card", PrismLightCard, {
    2 — Security Card  ·  Quadrat
    ══════════════════════════════════════════════════════════════ */
 
+/* ---------- Sicherheit: Tore, Rollläden, Fenster ----------
+   Nutzt die Bausteine der Lichtsteuerung; der Kopf ist türkis, solange
+   alles zu ist, und rot, sobald etwas offen steht. */
+const SECURITY_CSS = LIGHTS_CSS + `
+dialog.sp{--amber:var(--prism-theme-teal,#5EEAD4);--rose:var(--prism-theme-blue,#3B82F6);--ink:#06161c}
+dialog.sp.alert{--amber:var(--prism-theme-rose,#FF6B6B);--rose:var(--prism-theme-magenta,#C13584);--ink:#fff}
+dialog.sp.alert .pp-ic{background:rgba(255,255,255,.24)}
+.sp-sec{padding:4px 0 10px}
+.sp-h{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 2px 0 6px}
+.sp-h b{flex:1;min-width:0;font-weight:800;font-size:17px;letter-spacing:-.01em}
+.sp-h span{font-family:var(--pp-mono);font-size:12px;color:var(--secondary-text-color,#8a8f99)}
+.sp-all{flex:none;display:flex;align-items:center;gap:4px;min-height:38px;padding:0 12px 0 8px;border:0;border-radius:999px;
+  cursor:pointer;font:inherit;font-weight:700;font-size:13px;color:inherit;background:color-mix(in srgb,currentColor 9%,transparent)}
+.sp-all:hover{background:color-mix(in srgb,currentColor 16%,transparent)}
+.sp-all ha-icon{--mdc-icon-size:18px}
+.sp-rows{display:flex;flex-direction:column;gap:6px}
+.sp .lp-l{--lc:var(--prism-theme-teal,#5EEAD4)}
+.sp .lp-l.on .lp-s{color:#06161c}
+.sp .lp-more{width:42px}
+/* Name oben, Zustand darunter — so bleibt der Name auch am Handy ganz lesbar */
+.sp .lp-s,.sp-g{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;align-content:center}
+.sp-g{grid-template-columns:auto minmax(0,1fr) auto}
+.sp .lp-s .ico,.sp-g .ico{grid-row:1 / 3;align-self:center}
+.sp .lp-s .n,.sp-g .n{grid-column:2;grid-row:1;line-height:1.2}
+.sp .lp-s .p,.sp-g .p{grid-column:2;grid-row:2;font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-g .sp-act{grid-column:3;grid-row:1 / 3;align-self:center}
+/* Tor: Zustand links, eine klare Taste rechts */
+.sp-g{min-height:60px;padding:0 8px 0 14px;border-radius:17px;
+  background:color-mix(in srgb,currentColor 9%,transparent)}
+.sp-g .ico{flex:none;--mdc-icon-size:24px;opacity:.75}
+.sp-g .n{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-g .p{flex:none;font-family:var(--pp-mono);font-size:13px;opacity:.75}
+.sp-g.open{background:linear-gradient(120deg,var(--prism-theme-rose,#FF6B6B),var(--prism-theme-magenta,#C13584));color:#fff}
+.sp-g.open .ico,.sp-g.open .p{opacity:1}
+.sp-act{flex:none;min-width:104px;min-height:42px;padding:0 14px;border:0;border-radius:13px;cursor:pointer;font:inherit;
+  font-weight:700;font-size:14px;color:inherit;background:color-mix(in srgb,currentColor 14%,transparent)}
+.sp-act:hover{background:color-mix(in srgb,currentColor 22%,transparent)}
+.sp-act.ask{background:#fff;color:#b3261e;box-shadow:0 0 0 2px #b3261e inset}
+.sp-act:disabled{opacity:.5;cursor:default}
+/* Fenster und Türen */
+.sp-w{display:flex;align-items:center;gap:10px;width:100%;min-height:50px;padding:0 14px;border:0;border-radius:17px;cursor:pointer;
+  font:inherit;text-align:left;color:inherit;background:color-mix(in srgb,currentColor 7%,transparent)}
+.sp-w ha-icon{flex:none;--mdc-icon-size:22px;opacity:.7}
+.sp-w .n{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-w .p{flex:none;font-family:var(--pp-mono);font-size:12.5px;opacity:.78;white-space:nowrap}
+.sp-w.open{background:linear-gradient(120deg,var(--prism-theme-rose,#FF6B6B),var(--prism-theme-magenta,#C13584));color:#fff}
+.sp-w.open ha-icon,.sp-w.open .p{opacity:1}
+.sp-w.gone{opacity:.5}
+.sp-ok{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border-radius:17px;font-weight:600;font-size:15px;
+  background:color-mix(in srgb,var(--prism-theme-teal,#5EEAD4) 22%,transparent)}
+.sp-fold{display:flex;align-items:center;gap:6px;width:100%;min-height:46px;padding:0 6px;border:0;background:none;cursor:pointer;
+  font:inherit;font-weight:600;font-size:14px;color:var(--secondary-text-color,#8a8f99)}
+.sp-fold ha-icon{--mdc-icon-size:20px;transition:transform .18s}
+.sp-fold[aria-expanded="true"] ha-icon{transform:rotate(90deg)}
+.sp-fold:focus-visible,.sp-w:focus-visible,.sp-act:focus-visible,.sp-all:focus-visible{outline:2px solid var(--primary-color,#8b5cf6);outline-offset:2px}
+`;
+
 class PrismSecurityCard extends PrismCard {
   static defaults = { title: "Sicherheit", window_label: "fenster" };
   static stub = { title: "Sicherheit", window_label: "fenster" };
@@ -1750,7 +1807,235 @@ class PrismSecurityCard extends PrismCard {
         : this.value("Alles zu", "", "txt"),
     };
   }
-  wire() { this._wireHead(); }
+  /* Die ganze Karte öffnet die Übersicht, solange keine eigene Aktion gesetzt ist */
+  wire() {
+    const card = this.shadowRoot.querySelector(".card");
+    const a = this._config.tap_action;
+    if (a && a.action === "none") {
+      const go = this.shadowRoot.querySelector("#head .go");
+      if (go) go.remove();
+      return;
+    }
+    if (!card) return;
+    card.style.cursor = "pointer";
+    card.addEventListener("click", () => { if (a && a.action) this._headTap(); else this._openSecurity(); });
+  }
+  onHass() { if (this._pop && this._pop.sync) this._pop.sync(); }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._pop) this._pop.close();
+  }
+
+  /* ---------- Übersicht: Tore, Rollläden, Fenster und Türen ---------- */
+  _openSecurity() {
+    if (this._pop) this._pop.close();
+    const cfg = this._config;
+    const st = (id) => this._hass.states[id];
+    const ok = (id) => !!st(id) && st(id).state !== "unavailable" && st(id).state !== "unknown";
+    const name = (id) => friendly(this._hass, id).replace(/_/g, " ").trim();
+    const byName = (a, b) => name(a).localeCompare(name(b), "de");
+    /* Unter „Rollläden" heißt „Rolladen Küche" nur „Küche", unter „Garage" „Garage Julian" nur „Julian" */
+    const short = (id, re) => {
+      const n = name(id).replace(re, "").trim();
+      return n ? n.charAt(0).toUpperCase() + n.slice(1) : name(id);
+    };
+    const gateName = (id) => short(id, /^(garagen?(tor)?|tor)\s+/i);
+    const blindName = (id) => short(id, /^(roll?l?[aä]den|jalousie|rollo)\s+/i);
+
+    /* Abdeckungen: einzelne Geräte, keine Gruppen */
+    const manual = toList(cfg.covers);
+    const covers = (manual.length ? manual.filter((id) => st(id)) : Object.keys(this._hass.states).filter((id) =>
+      id.startsWith("cover.") && !Array.isArray(st(id).attributes.entity_id) && !isHidden(this._hass, id))).sort(byName);
+    const isGate = (id) => ["garage", "gate", "door"].includes(st(id).attributes.device_class);
+    const gates = covers.filter(isGate), blinds = covers.filter((id) => !isGate(id));
+    const canSet = (id) => ((st(id).attributes.supported_features || 0) & 4) !== 0;
+
+    /* Kontakte: dieselbe Auswahl wie auf der Karte, dazu die Haustür */
+    const label = cfg.window_label || "fenster";
+    const front = toList(cfg.front_door)[0];
+    const contacts = Object.keys(this._hass.states).filter((id) =>
+      id.startsWith("binary_sensor.") && hasLabel(this._hass, id, label) && !isHidden(this._hass, id));
+    if (front && st(front) && !contacts.includes(front)) contacts.unshift(front);
+
+    const pop = this._pop = prismPopup({
+      title: cfg.title || "Sicherheit", sub: "", icon: "mdi:shield-home", width: 540,
+      cls: "lp sp", css: SECURITY_CSS,
+      onClose: () => { if (this._pop === pop) this._pop = null; },
+      onMoreInfo: (id) => this._moreInfo(id),
+    });
+    const dlg = pop.body.closest("dialog");
+    const root = pop.body;
+
+    root.innerHTML = `<div class="lp-list">
+      ${gates.length ? `<section class="sp-sec"><div class="sp-h"><b>Garage</b></div>
+        <div class="sp-rows">${gates.map((id) => `<div class="sp-g" data-id="${esc(id)}">
+          <ha-icon class="ico"></ha-icon><span class="n">${esc(gateName(id))}</span><span class="p"></span>
+          <button class="sp-act" type="button"></button></div>`).join("")}</div></section>` : ""}
+      ${blinds.length ? `<section class="sp-sec"><div class="sp-h"><b>Rollläden</b>
+          <button class="sp-all" type="button" data-all="open_cover"><ha-icon icon="mdi:arrow-up"></ha-icon>Alle hoch</button>
+          <button class="sp-all" type="button" data-all="close_cover"><ha-icon icon="mdi:arrow-down"></ha-icon>Alle runter</button></div>
+        <div class="sp-rows">${blinds.map((id) => `<div class="lp-l${canSet(id) ? " dim" : ""}" data-id="${esc(id)}">
+          <div class="lp-s" tabindex="0" role="${canSet(id) ? "slider" : "group"}" aria-label="${esc(blindName(id))}">
+            <i class="fill"></i><ha-icon class="ico"></ha-icon><span class="n">${esc(blindName(id))}</span><span class="p"></span></div>
+          <button class="lp-more" type="button" data-c="open_cover" aria-label="${esc(blindName(id) + " hochfahren")}"><ha-icon icon="mdi:arrow-up"></ha-icon></button>
+          <button class="lp-more" type="button" data-c="stop_cover" aria-label="${esc(blindName(id) + " anhalten")}"><ha-icon icon="mdi:stop"></ha-icon></button>
+          <button class="lp-more" type="button" data-c="close_cover" aria-label="${esc(blindName(id) + " herunterfahren")}"><ha-icon icon="mdi:arrow-down"></ha-icon></button>
+        </div>`).join("")}</div></section>` : ""}
+      <section class="sp-sec"><div class="sp-h"><b>Fenster und Türen</b><span id="sp-wc"></span></div>
+        <div class="sp-rows" id="sp-win"></div></section>
+      ${blinds.length ? `<p class="lp-hint">Rollladen: ziehen stellt die Höhe ein, die Pfeile fahren ganz hoch oder runter.</p>` : ""}
+    </div>`;
+
+    const held = {};
+    let dragging = null, showClosed = false, winSig = "";
+    const posOf = (id) => {
+      const h = held[id];
+      if (h && h.until > Date.now()) return h.pct;
+      const p = st(id) && st(id).attributes.current_position;
+      return typeof p === "number" ? Math.round(p) : (st(id) && st(id).state === "closed" ? 0 : 100);
+    };
+    const since = (id) => {
+      const t = st(id) && Date.parse(st(id).last_changed);
+      if (!t) return "";
+      const min = Math.max(0, Math.round((Date.now() - t) / 60000));
+      return min < 1 ? "gerade eben" : min < 60 ? "seit " + min + " Min" : min < 1440 ? "seit " + Math.round(min / 60) + " Std" : "seit " + Math.round(min / 1440) + " Tagen";
+    };
+
+    pop.sync = () => {
+      let openGates = 0;
+      root.querySelectorAll(".sp-g").forEach((row) => {
+        const id = row.getAttribute("data-id"), s = st(id), state = s ? s.state : "unavailable";
+        const open = ok(id) && state !== "closed";
+        if (open) openGates++;
+        row.classList.toggle("open", open);
+        row.querySelector(".ico").setAttribute("icon", open ? "mdi:garage-open-variant" : "mdi:garage-variant");
+        row.querySelector(".p").textContent = !ok(id) ? "Nicht erreichbar" : state === "opening" ? "Öffnet …"
+          : state === "closing" ? "Schließt …" : open ? "Offen " + since(id) : "Zu";
+        const b = row.querySelector(".sp-act");
+        if (!b.classList.contains("ask")) b.textContent = open ? "Schließen" : "Öffnen";
+        b.disabled = !ok(id);
+      });
+      root.querySelectorAll(".lp-l").forEach((row) => {
+        const id = row.getAttribute("data-id");
+        if (dragging === id) return;
+        const pct = ok(id) ? posOf(id) : 0;
+        row.classList.toggle("on", ok(id) && pct > 0);
+        row.classList.toggle("gone", !ok(id));
+        row.querySelector(".fill").style.width = pct + "%";
+        row.querySelector(".p").textContent = !ok(id) ? "Nicht erreichbar" : pct <= 0 ? "Zu" : pct >= 100 ? "Offen" : pct + " % offen";
+        row.querySelector(".ico").setAttribute("icon", pct <= 0 ? "mdi:window-shutter" : "mdi:window-shutter-open");
+        const sl = row.querySelector(".lp-s");
+        sl.setAttribute("aria-valuenow", pct); sl.setAttribute("aria-valuetext", row.querySelector(".p").textContent);
+      });
+
+      /* Fenster: offene oben und rot, geschlossene dahinter eingeklappt */
+      const open = contacts.filter((id) => ok(id) && st(id).state === "on").sort(byName);
+      const rest = contacts.filter((id) => !open.includes(id)).sort(byName);
+      const sig = open.map((id) => id + since(id)).join("|") + "#" + rest.map((id) => id + ok(id)).join("|") + "#" + showClosed;
+      if (sig !== winSig) {
+        winSig = sig;
+        const row = (id, isOpen) => `<button class="sp-w${isOpen ? " open" : ""}${ok(id) ? "" : " gone"}" type="button" data-w="${esc(id)}">
+          <ha-icon icon="${isOpen ? "mdi:window-open-variant" : "mdi:window-closed-variant"}"></ha-icon>
+          <span class="n">${esc(name(id))}</span>
+          <span class="p">${esc(!ok(id) ? "Nicht erreichbar" : isOpen ? "offen " + since(id) : "zu")}</span></button>`;
+        root.querySelector("#sp-win").innerHTML =
+          (open.length ? open.map((id) => row(id, true)).join("")
+            : contacts.length ? `<div class="sp-ok"><ha-icon icon="mdi:check-circle-outline"></ha-icon>Alle Fenster und Türen sind zu</div>`
+            : `<div class="sp-ok">Keine Kontakte mit Label „${esc(label)}“ gefunden</div>`)
+          + (rest.length ? `<button class="sp-fold" type="button" aria-expanded="${showClosed}">
+              <ha-icon icon="mdi:chevron-right"></ha-icon>${rest.length} geschlossen</button>
+              ${showClosed ? rest.map((id) => row(id, false)).join("") : ""}` : "");
+        root.querySelectorAll("[data-w]").forEach((b) => b.addEventListener("click", () => {
+          const id = b.getAttribute("data-w");
+          pop.close();
+          this._moreInfo(id);
+        }));
+        const fold = root.querySelector(".sp-fold");
+        if (fold) fold.addEventListener("click", () => { showClosed = !showClosed; pop.sync(); });
+      }
+      root.querySelector("#sp-wc").textContent = open.length ? open.length + " offen" : "";
+
+      const parts = [];
+      if (open.length) parts.push(open.length + (open.length === 1 ? " Kontakt offen" : " Kontakte offen"));
+      if (openGates) parts.push(openGates === 1 ? "Garage offen" : openGates + " Tore offen");
+      pop.setSub(parts.length ? parts.join(", ") : "Alles zu");
+      dlg.classList.toggle("alert", parts.length > 0);
+    };
+
+    /* Tor: Schließen sofort, Öffnen erst nach einem zweiten Tipp */
+    root.querySelectorAll(".sp-g").forEach((row) => {
+      const id = row.getAttribute("data-id"), b = row.querySelector(".sp-act");
+      let t = null;
+      b.addEventListener("click", () => {
+        const open = ok(id) && st(id).state !== "closed";
+        if (!open && !b.classList.contains("ask")) {
+          b.classList.add("ask"); b.textContent = "Wirklich öffnen?";
+          t = setTimeout(() => { b.classList.remove("ask"); if (pop.open) pop.sync(); }, 4000);
+          return;
+        }
+        clearTimeout(t); b.classList.remove("ask");
+        this._hass.callService("cover", open ? "close_cover" : "open_cover", { entity_id: id });
+        pop.sync();
+      });
+    });
+    root.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
+      const list = blinds.filter(ok);
+      if (list.length) this._hass.callService("cover", b.getAttribute("data-all"), { entity_id: list });
+    }));
+    root.querySelectorAll(".lp-l [data-c]").forEach((b) => b.addEventListener("click", () => {
+      const id = b.closest(".lp-l").getAttribute("data-id");
+      if (ok(id)) this._hass.callService("cover", b.getAttribute("data-c"), { entity_id: id });
+    }));
+    /* Rollladen ziehen: gesendet wird erst beim Loslassen — der Motor soll nicht ruckeln */
+    root.querySelectorAll(".lp-l.dim .lp-s").forEach((el) => {
+      const row = el.parentElement, id = row.getAttribute("data-id");
+      let start = null;
+      const pctAt = (x) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(100, Math.round((x - r.left) / r.width * 20) * 5)); };
+      const show = (pct) => {
+        row.classList.toggle("on", pct > 0);
+        row.querySelector(".fill").style.width = pct + "%";
+        row.querySelector(".p").textContent = pct <= 0 ? "Zu" : pct >= 100 ? "Offen" : pct + " % offen";
+      };
+      const send = (pct) => {
+        held[id] = { until: Date.now() + 4000, pct };
+        setTimeout(() => { if (pop.open) pop.sync(); }, 4100);
+        this._hass.callService("cover", "set_cover_position", { entity_id: id, position: pct });
+      };
+      el.addEventListener("pointerdown", (ev) => { if (ev.button === 0 && ok(id)) start = { x: ev.clientX, y: ev.clientY, drag: false }; });
+      el.addEventListener("pointermove", (ev) => {
+        if (!start) return;
+        const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+        if (!start.drag) {
+          if (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+          start.drag = true; dragging = id; row.classList.add("drag");
+          try { el.setPointerCapture(ev.pointerId); } catch (e) { /* egal */ }
+        }
+        show(pctAt(ev.clientX));
+      });
+      const end = (ev, cancelled) => {
+        if (!start) return;
+        const s = start; start = null;
+        row.classList.remove("drag");
+        if (!s.drag) return;
+        dragging = null;
+        if (!cancelled) send(pctAt(ev.clientX));
+        pop.sync();
+      };
+      el.addEventListener("pointerup", (ev) => end(ev, false));
+      el.addEventListener("pointercancel", (ev) => end(ev, true));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+        ev.preventDefault();
+        const pct = Math.max(0, Math.min(100, posOf(id) + (ev.key === "ArrowRight" ? 10 : -10)));
+        show(pct); send(pct);
+      });
+    });
+
+    pop.sync();
+    /* „offen seit" läuft weiter, auch wenn sich sonst nichts ändert */
+    const tick = setInterval(() => { if (pop.open) pop.sync(); }, 30000);
+    pop.cleanup.push(() => clearInterval(tick));
+  }
 }
 
 register("prism-security-card", PrismSecurityCard, {
@@ -1762,16 +2047,18 @@ register("prism-security-card", PrismSecurityCard, {
   { name: "front_door", selector: { entity: { filter: [{ domain: "lock" }, { domain: "binary_sensor" }, { domain: "cover" }, { domain: "group" }] } } },
   { name: "garage", selector: { entity: { filter: [{ domain: "cover" }, { domain: "binary_sensor" }, { domain: "group" }] } } },
   { name: "alarm", selector: { entity: { filter: [{ domain: "alarm_control_panel" }] } } },
+  { name: "covers", selector: { entity: { multiple: true, filter: [{ domain: "cover" }] } } },
   { name: "color_alert", selector: { text: {} } },
   { name: "tap_action", selector: { ui_action: {} } },
 ], {
   title: "Titel",
+  covers: "Rollläden und Tore im Popup (leer = alle automatisch)",
   window_label: "Fenster-Label (Standard: fenster)",
   front_door: "Haustür (Entität oder Gruppe)",
   garage: "Garage (Entität oder Gruppe)",
   alarm: "Alarmanlage (optional)",
   color_alert: "Farbe: Alarm / offen (leer = Theme)",
-  tap_action: "Aktion beim Klick auf den Kopf (z. B. Navigation)",
+  tap_action: "Aktion beim Klick auf die Karte (leer = Übersicht öffnen)",
 });
 
 /* ══════════════════════════════════════════════════════════════
