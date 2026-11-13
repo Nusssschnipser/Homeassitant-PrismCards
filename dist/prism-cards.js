@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v57";
+const PRISM_VERSION = "v57.1";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1291,7 +1291,6 @@ dialog.lp{--amber:var(--prism-theme-amber,#FFC24B);--rose:var(--prism-theme-rose
 .lp .pp-tt b{font-size:22px}
 .lp .pp-tt span{color:var(--ink);opacity:.78;font-size:13px}
 .lp-list{padding:6px 12px 14px}
-.lp-room + .lp-room{border-top:1px solid var(--divider-color,rgba(127,127,127,.22))}
 .lp-rh{display:flex;align-items:center;gap:8px;min-height:54px}
 .lp-fold{flex:1;min-width:0;display:flex;align-items:center;gap:6px;min-height:48px;padding:0 4px 0 0;border:0;background:none;
   color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:12px}
@@ -1301,6 +1300,11 @@ dialog.lp{--amber:var(--prism-theme-amber,#FFC24B);--rose:var(--prism-theme-rose
 .lp-cnt{flex:1;min-width:0;font-family:var(--pp-mono);font-size:12px;color:var(--secondary-text-color,#8a8f99);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
 .lp-room.lit .lp-cnt{color:inherit;font-weight:700}
+/* Brennt im Raum Licht, trägt seine Zeile den Verlauf der Licht-Karte */
+.lp-rh{padding:0 6px 0 8px;border-radius:17px;margin:6px 0;transition:background .18s}
+.lp-room.lit .lp-rh{background:linear-gradient(120deg,var(--amber),var(--rose));color:var(--ink)}
+.lp-room.lit .lp-fold .chev{opacity:.8}
+.lp-room.lit .lp-sw[aria-checked="true"]{background:rgba(27,20,8,.32)}
 /* Raumschalter */
 .lp-sw{flex:none;position:relative;width:52px;height:32px;padding:0;border:0;border-radius:999px;cursor:pointer;
   background:color-mix(in srgb,currentColor 18%,transparent);color:inherit;transition:background .18s}
@@ -1437,7 +1441,7 @@ class PrismLightCard extends PrismCard {
 
   /* ---------- Lichtsteuerung ----------
      Räume als Abschnitte, jede Lampe ein breiter Regler: tippen schaltet,
-     ziehen dimmt. Räume, in denen Licht brennt, stehen oben und sind offen. */
+     ziehen dimmt. Räume, in denen Licht brennt, stehen oben und sind eingefärbt. */
   _openLights(focusId) {
     if (this._pop) this._pop.close();
     const ids = this._collect();
@@ -1483,7 +1487,8 @@ class PrismLightCard extends PrismCard {
     }, "Alle aus");
 
     pop.body.innerHTML = `<div class="lp-list">${order.map((room, ri) => {
-      const open = room === focusRoom || rooms.get(room).some(isOn);
+      /* Beim Öffnen sind alle Räume zu — nur ein gezielt angetippter Raum ist offen */
+      const open = room === focusRoom;
       return `<section class="lp-room${open ? " open" : ""}" data-r="${ri}">
         <div class="lp-rh">
           <button class="lp-fold" type="button" aria-expanded="${open}">
