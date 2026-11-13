@@ -4,7 +4,7 @@
 
 Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprache, eine gemeinsame Größenskala, keine Abhängigkeiten und kein Build-Schritt — eine einzige JavaScript-Datei.
 
-![Version](https://img.shields.io/badge/version-v56.1-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
+![Version](https://img.shields.io/badge/version-v57-blue) ![HACS](https://img.shields.io/badge/HACS-custom-orange) ![Lizenz](https://img.shields.io/badge/Lizenz-MIT-green)
 
 ---
 
@@ -29,7 +29,7 @@ Eine Sammlung von 18 Lovelace-Karten für Home Assistant. Gemeinsame Formensprac
 > Aktualisierung hoch — sonst zeigt der Cache die alte Fassung.
 
 **Version prüfen:** In der Browser-Konsole erscheint beim Laden eine Zeile wie
-`PRISM-CARDS v56 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
+`PRISM-CARDS v57 · 15 Quadrate + 11 Doppel + 2 Mini`. Alternativ in der Konsole
 `PRISM_VERSION` eingeben.
 
 **Schriften (optional):** Die Karten laden ihre Schriften seit v54 nicht mehr

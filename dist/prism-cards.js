@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v56.1";
+const PRISM_VERSION = "v57";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1282,6 +1282,62 @@ function register(tag, cls, meta, schema, labels) {
    1 — Light Card  ·  Quadrat
    ══════════════════════════════════════════════════════════════ */
 
+/* ---------- Lichtsteuerung ----------
+   Kopf im Verlauf der Licht-Karte, darunter Räume mit breiten Reglern. */
+const LIGHTS_CSS = `
+dialog.lp{--amber:var(--prism-theme-amber,#FFC24B);--rose:var(--prism-theme-rose,#FF6B6B);--ink:#1b1408}
+.lp .pp-hd{background:linear-gradient(150deg,var(--amber),var(--rose));color:var(--ink);padding:16px 10px 16px 18px}
+.lp .pp-ic{background:rgba(255,255,255,.34);color:var(--ink)}
+.lp .pp-tt b{font-size:22px}
+.lp .pp-tt span{color:var(--ink);opacity:.78;font-size:13px}
+.lp-list{padding:6px 12px 14px}
+.lp-room + .lp-room{border-top:1px solid var(--divider-color,rgba(127,127,127,.22))}
+.lp-rh{display:flex;align-items:center;gap:8px;min-height:54px}
+.lp-fold{flex:1;min-width:0;display:flex;align-items:center;gap:6px;min-height:48px;padding:0 4px 0 0;border:0;background:none;
+  color:inherit;font:inherit;text-align:left;cursor:pointer;border-radius:12px}
+.lp-fold .chev{flex:none;--mdc-icon-size:22px;opacity:.6;transition:transform .18s}
+.lp-room.open .chev{transform:rotate(90deg)}
+.lp-fold b{font-weight:800;font-size:17px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-cnt{flex:1;min-width:0;font-family:var(--pp-mono);font-size:12px;color:var(--secondary-text-color,#8a8f99);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+.lp-room.lit .lp-cnt{color:inherit;font-weight:700}
+/* Raumschalter */
+.lp-sw{flex:none;position:relative;width:52px;height:32px;padding:0;border:0;border-radius:999px;cursor:pointer;
+  background:color-mix(in srgb,currentColor 18%,transparent);color:inherit;transition:background .18s}
+.lp-sw i{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .18s}
+.lp-sw[aria-checked="true"]{background:linear-gradient(90deg,var(--amber),var(--rose))}
+.lp-sw[aria-checked="true"] i{transform:translateX(20px)}
+.lp-rows{display:none;flex-direction:column;gap:6px;padding:0 0 12px}
+.lp-room.open .lp-rows{display:flex}
+/* Eine Lampe: die ganze Zeile ist der Regler */
+.lp-l{display:flex;align-items:stretch;gap:6px;--lc:var(--amber)}
+.lp-s{position:relative;flex:1;min-width:0;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px 0 14px;
+  border-radius:17px;overflow:hidden;cursor:pointer;touch-action:pan-y;-webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;background:color-mix(in srgb,currentColor 9%,transparent)}
+.lp-s .fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:17px;transition:width .2s ease;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--lc) 62%,#fff),var(--lc))}
+.lp-l.drag .fill{transition:none}
+/* Griffkante: zeigt, dass sich hier ziehen lässt */
+.lp-l.dim.on .fill::after{content:"";position:absolute;right:6px;top:50%;width:4px;height:22px;margin-top:-11px;
+  border-radius:2px;background:rgba(27,20,8,.34)}
+.lp-s > :not(.fill){position:relative}
+.lp-s .ico{flex:none;--mdc-icon-size:22px;opacity:.7}
+.lp-s .n{flex:1;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lp-s .p{flex:none;font-family:var(--pp-mono);font-size:13px;opacity:.75;font-variant-numeric:tabular-nums}
+/* Brennt die Lampe, ist die Zeile hell — dunkle Schrift bleibt in jedem Theme lesbar */
+.lp-l.on .lp-s{color:var(--ink);background:color-mix(in srgb,var(--lc) 26%,#fff)}
+.lp-l.on .lp-s .ico,.lp-l.on .lp-s .p{opacity:1}
+.lp-l.gone .lp-s{opacity:.45;cursor:default}
+.lp-more{flex:none;width:46px;padding:0;border:0;border-radius:17px;cursor:pointer;display:grid;place-items:center;
+  color:inherit;background:color-mix(in srgb,currentColor 9%,transparent)}
+.lp-more:hover{background:color-mix(in srgb,currentColor 16%,transparent)}
+.lp-more ha-icon{--mdc-icon-size:20px;opacity:.75}
+.lp-s:focus-visible,.lp-more:focus-visible,.lp-fold:focus-visible,.lp-sw:focus-visible{outline:2px solid var(--primary-color,#8b5cf6);outline-offset:2px}
+.lp-hint{margin:10px 4px 0;font-size:12.5px;line-height:1.4;color:var(--secondary-text-color,#8a8f99)}
+@media (prefers-reduced-motion: reduce){.lp-s .fill,.lp-sw,.lp-sw i,.lp-fold .chev{transition:none}}
+`;
+
 class PrismLightCard extends PrismCard {
   static defaults = { title: "Licht", exclude_label: "no-dashboard", include_switches: false };
   static stub = { title: "Licht", exclude_label: "no-dashboard" };
@@ -1354,7 +1410,232 @@ class PrismLightCard extends PrismCard {
                        on.length ? "von " + lights.length + " an" : "Lichter aus"),
     };
   }
-  wire() { this._wireHead(); }
+
+  /* Die ganze Karte ist die Tippfläche. Ohne eigene tap_action öffnet sie
+     die Lichtsteuerung; ein Tipp auf eine Raumzeile springt dort zum Raum. */
+  wire() {
+    const card = this.shadowRoot.querySelector(".card");
+    const a = this._config.tap_action;
+    if (a && a.action === "none") {
+      const go = this.shadowRoot.querySelector("#head .go");
+      if (go) go.remove();
+      return;
+    }
+    if (!card) return;
+    card.style.cursor = "pointer";
+    card.addEventListener("click", (ev) => {
+      if (a && a.action) { this._headTap(); return; }
+      const row = ev.composedPath().find((n) => n.getAttribute && n.getAttribute("data-mi"));
+      this._openLights(row ? row.getAttribute("data-mi") : null);
+    });
+  }
+  onHass() { if (this._pop && this._pop.sync) this._pop.sync(); }
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._pop) this._pop.close();
+  }
+
+  /* ---------- Lichtsteuerung ----------
+     Räume als Abschnitte, jede Lampe ein breiter Regler: tippen schaltet,
+     ziehen dimmt. Räume, in denen Licht brennt, stehen oben und sind offen. */
+  _openLights(focusId) {
+    if (this._pop) this._pop.close();
+    const ids = this._collect();
+    const NONE = "Ohne Raum";
+    const roomOf = (id) => areaNameFor(this._hass, id) || NONE;
+    const st = (id) => this._hass.states[id];
+    const isOn = (id) => !!st(id) && st(id).state === "on";
+    const dimmable = (id) => {
+      const m = st(id) && st(id).attributes.supported_color_modes;
+      return id.startsWith("light.") && Array.isArray(m) && m.some((x) => x !== "onoff");
+    };
+    const rooms = new Map();
+    ids.forEach((id) => { const r = roomOf(id); if (!rooms.has(r)) rooms.set(r, []); rooms.get(r).push(id); });
+    const order = [...rooms.keys()].sort((a, b) =>
+      (rooms.get(a).some(isOn) ? 0 : 1) - (rooms.get(b).some(isOn) ? 0 : 1) || a.localeCompare(b, "de"));
+    const focusRoom = focusId && st(focusId) ? roomOf(focusId) : null;
+    /* Im Abschnitt „Büro" heißt „Licht_Decke_Büro Licht" nur noch „Decke":
+       Unterstriche, der Raumname und das Wort Licht am Rand fallen weg. */
+    const label = (id, room) => {
+      const full = friendly(this._hass, id);
+      const esc2 = room.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      let n = full.replace(/_/g, " ");
+      if (room !== NONE) n = n.replace(new RegExp("(^|\\s)" + esc2 + "(?=\\s|$)", "gi"), " ");
+      n = n.replace(/\s+/g, " ").trim();
+      let prev;
+      do { prev = n; n = n.replace(/^(licht|leuchte)\s+/i, "").replace(/\s+(licht|leuchte)$/i, "").trim(); } while (n !== prev);
+      if (!n) return full.replace(/_/g, " ");
+      return n.charAt(0).toUpperCase() + n.slice(1);
+    };
+
+    const pop = this._pop = prismPopup({
+      title: this._config.title || "Licht", sub: "", icon: "mdi:lightbulb-group", width: 540,
+      cls: "lp", css: LIGHTS_CSS,
+      onClose: () => { if (this._pop === pop) this._pop = null; },
+      onMoreInfo: (id) => this._moreInfo(id),
+    });
+    const offBtn = pop.addAction("mdi:power", "Alle Lichter ausschalten", () => {
+      const on = ids.filter((id) => read(id).on);
+      if (!on.length) return;
+      on.forEach((id) => hold(id, false));
+      this._hass.callService("homeassistant", "turn_off", { entity_id: on });
+      pop.sync();
+    }, "Alle aus");
+
+    pop.body.innerHTML = `<div class="lp-list">${order.map((room, ri) => {
+      const open = room === focusRoom || rooms.get(room).some(isOn);
+      return `<section class="lp-room${open ? " open" : ""}" data-r="${ri}">
+        <div class="lp-rh">
+          <button class="lp-fold" type="button" aria-expanded="${open}">
+            <ha-icon class="chev" icon="mdi:chevron-right"></ha-icon><b>${esc(room)}</b><span class="lp-cnt"></span>
+          </button>
+          <button class="lp-sw" type="button" role="switch" aria-label="${esc("Alle Lichter in " + room)}"><i></i></button>
+        </div>
+        <div class="lp-rows">${rooms.get(room).map((id) => `
+          <div class="lp-l${dimmable(id) ? " dim" : ""}" data-id="${esc(id)}">
+            <div class="lp-s" tabindex="0" role="${dimmable(id) ? "slider" : "switch"}" aria-label="${esc(label(id, room))}">
+              <i class="fill"></i>
+              <ha-icon class="ico"></ha-icon><span class="n">${esc(label(id, room))}</span><span class="p"></span>
+            </div>
+            <button class="lp-more" type="button" aria-label="${esc(label(id, room) + ": Farbe und Details")}">
+              <ha-icon icon="mdi:dots-horizontal"></ha-icon></button>
+          </div>`).join("")}</div>
+      </section>`;
+    }).join("")}
+      <p class="lp-hint">Tippen schaltet, ziehen dimmt. Die drei Punkte öffnen Farbe und Details.</p></div>`;
+
+    /* Nach einer Bedienung zählt kurz der eigene Wert — sonst springt der
+       Regler zurück, bis Home Assistant den neuen Zustand meldet. */
+    const held = {};
+    const hold = (id, on, pct) => { held[id] = { until: Date.now() + 2500, on, pct }; setTimeout(() => { if (pop.open) pop.sync(); }, 2600); };
+    const read = (id) => {
+      const h = held[id];
+      if (h && h.until > Date.now()) return { ok: true, on: h.on, pct: h.pct === undefined ? null : h.pct };
+      const s = st(id);
+      const ok = !!s && s.state !== "unavailable" && s.state !== "unknown";
+      const b = s && s.attributes.brightness;
+      return { ok, on: ok && s.state === "on", pct: typeof b === "number" ? Math.max(1, Math.round(b / 255 * 100)) : null };
+    };
+    const root = pop.body;
+    let dragging = null;
+
+    pop.sync = () => {
+      let total = 0;
+      root.querySelectorAll(".lp-room").forEach((sec) => {
+        const list = rooms.get(order[+sec.getAttribute("data-r")]);
+        let n = 0;
+        sec.querySelectorAll(".lp-l").forEach((row) => {
+          const id = row.getAttribute("data-id");
+          const v = read(id);
+          if (v.on) n++;
+          if (dragging === id) return;
+          const dim = row.classList.contains("dim");
+          const pct = v.on ? (dim && v.pct !== null ? v.pct : 100) : 0;
+          row.classList.toggle("on", v.on);
+          row.classList.toggle("gone", !v.ok);
+          row.querySelector(".fill").style.width = pct + "%";
+          row.querySelector(".p").textContent = !v.ok ? "Nicht erreichbar" : !v.on ? "Aus" : dim && v.pct !== null ? pct + " %" : "An";
+          const s = st(id), rgb = s && s.attributes.rgb_color;
+          row.style.setProperty("--lc", v.on && Array.isArray(rgb) ? `rgb(${rgb.join(",")})` : "");
+          row.querySelector(".ico").setAttribute("icon", (s && s.attributes.icon) || (v.on ? "mdi:lightbulb-on" : "mdi:lightbulb-outline"));
+          const sl = row.querySelector(".lp-s");
+          if (dim) { sl.setAttribute("aria-valuenow", pct); sl.setAttribute("aria-valuetext", v.on ? pct + " %" : "Aus"); }
+          else sl.setAttribute("aria-checked", v.on);
+        });
+        total += n;
+        sec.classList.toggle("lit", n > 0);
+        sec.querySelector(".lp-cnt").textContent = n ? n + " von " + list.length + " an" : list.length + (list.length === 1 ? " Lampe" : " Lampen");
+        sec.querySelector(".lp-sw").setAttribute("aria-checked", n > 0);
+      });
+      pop.setSub(total ? total + " von " + ids.length + " an" : "Alle " + ids.length + " aus");
+      offBtn.disabled = total === 0;
+    };
+
+    const setOn = (id, on) => {
+      hold(id, on);
+      this._hass.callService("homeassistant", on ? "turn_on" : "turn_off", { entity_id: id });
+      pop.sync();
+    };
+    let sendT = 0, sendLater = null;
+    const setPct = (id, pct, final) => {
+      hold(id, true, pct);
+      const send = () => { sendT = Date.now(); this._hass.callService("light", "turn_on", { entity_id: id, brightness_pct: pct }); };
+      clearTimeout(sendLater);
+      if (final || Date.now() - sendT > 350) send(); else sendLater = setTimeout(send, 350);
+    };
+
+    root.querySelectorAll(".lp-fold").forEach((b) => b.addEventListener("click", () => {
+      const open = b.closest(".lp-room").classList.toggle("open");
+      b.setAttribute("aria-expanded", open);
+    }));
+    root.querySelectorAll(".lp-sw").forEach((b) => b.addEventListener("click", () => {
+      const list = rooms.get(order[+b.closest(".lp-room").getAttribute("data-r")]);
+      const on = list.filter((id) => read(id).on);
+      const target = on.length ? on : list.filter((id) => read(id).ok);
+      if (!target.length) return;
+      target.forEach((id) => hold(id, !on.length));
+      this._hass.callService("homeassistant", on.length ? "turn_off" : "turn_on", { entity_id: target });
+      pop.sync();
+    }));
+    root.querySelectorAll(".lp-more").forEach((b) => b.addEventListener("click", () => {
+      const id = b.closest(".lp-l").getAttribute("data-id");
+      pop.close();
+      this._moreInfo(id);
+    }));
+    root.querySelectorAll(".lp-s").forEach((el) => {
+      const row = el.parentElement, id = row.getAttribute("data-id"), dim = row.classList.contains("dim");
+      let start = null;
+      const pctAt = (x) => { const r = el.getBoundingClientRect(); return Math.max(1, Math.min(100, Math.round((x - r.left) / r.width * 100))); };
+      const show = (pct) => {
+        row.classList.add("on");
+        row.querySelector(".fill").style.width = pct + "%";
+        row.querySelector(".p").textContent = pct + " %";
+      };
+      el.addEventListener("pointerdown", (ev) => { if (ev.button === 0) start = { x: ev.clientX, y: ev.clientY, drag: false }; });
+      el.addEventListener("pointermove", (ev) => {
+        if (!start) return;
+        const dx = ev.clientX - start.x, dy = ev.clientY - start.y;
+        if (!start.drag) {
+          if (!dim || Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(dy)) return;
+          start.drag = true; dragging = id;
+          row.classList.add("drag");
+          try { el.setPointerCapture(ev.pointerId); } catch (e) { /* egal */ }
+        }
+        const pct = pctAt(ev.clientX);
+        show(pct);
+        setPct(id, pct, false);
+      });
+      const end = (ev, cancelled) => {
+        if (!start) return;
+        const s = start; start = null;
+        row.classList.remove("drag");
+        if (s.drag) {
+          dragging = null;
+          if (!cancelled) setPct(id, pctAt(ev.clientX), true);
+          pop.sync();
+        } else if (!cancelled && Math.abs(ev.clientX - s.x) < 8 && Math.abs(ev.clientY - s.y) < 8) {
+          if (read(id).ok) setOn(id, !read(id).on);
+        }
+      };
+      el.addEventListener("pointerup", (ev) => end(ev, false));
+      el.addEventListener("pointercancel", (ev) => end(ev, true));
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); if (read(id).ok) setOn(id, !read(id).on); return; }
+        if (!dim || (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight")) return;
+        ev.preventDefault();
+        const v = read(id);
+        const pct = Math.max(1, Math.min(100, (v.on ? (v.pct || 100) : 0) + (ev.key === "ArrowRight" ? 10 : -10)));
+        show(pct);
+        setPct(id, pct, true);
+      });
+    });
+
+    pop.sync();
+    if (focusRoom) {
+      const sec = root.querySelector(`.lp-room[data-r="${order.indexOf(focusRoom)}"]`);
+      if (sec && order.indexOf(focusRoom) > 0) sec.scrollIntoView({ block: "start" });
+    }
+  }
 }
 
 register("prism-light-card", PrismLightCard, {
@@ -1371,7 +1652,7 @@ register("prism-light-card", PrismLightCard, {
   exclude_label: "Label ausschließen (Standard: no-dashboard)",
   include_switches: "Schalter (switch) mit einbeziehen",
   entities: "Nur diese Entitäten (leer = alle Lichter automatisch)",
-  tap_action: "Aktion beim Klick auf den Kopf (z. B. Navigation)",
+  tap_action: "Aktion beim Klick auf die Karte (leer = Lichtsteuerung öffnen)",
 });
 
 /* ══════════════════════════════════════════════════════════════
@@ -5737,6 +6018,12 @@ dialog::backdrop{background:rgba(6,6,12,.62);-webkit-backdrop-filter:blur(6px);b
 .pp-btn:active{background:color-mix(in srgb,currentColor 18%,transparent)}
 .pp-btn:focus-visible,.pp-pill:focus-visible{outline:2px solid var(--primary-color,#8b5cf6);outline-offset:2px}
 .pp-btn ha-icon{--mdc-icon-size:22px}
+.pp-txt{flex:none;display:flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 10px;margin-right:4px;border:0;
+  border-radius:999px;cursor:pointer;font:inherit;font-weight:700;font-size:14px;color:inherit;
+  background:color-mix(in srgb,currentColor 14%,transparent)}
+.pp-txt:hover{background:color-mix(in srgb,currentColor 22%,transparent)}
+.pp-txt:disabled{opacity:.45;cursor:default}
+.pp-txt ha-icon{--mdc-icon-size:18px}
 .pp-bd{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column}
 
 /* Bühne des Videoclips */
@@ -5773,8 +6060,8 @@ function prismPopup(o) {
   const host = document.createElement("div");
   host.className = "prism-popup";
   const root = host.attachShadow({ mode: "open" });
-  root.innerHTML = `<style>${POPUP_CSS}</style>
-    <dialog aria-labelledby="pp-title">
+  root.innerHTML = `<style>${POPUP_CSS}${o.css || ""}</style>
+    <dialog aria-labelledby="pp-title" class="${esc(o.cls || "")}">
       <div class="pp-hd">
         <span class="pp-ic"><ha-icon icon="${esc(o.icon || "mdi:cctv")}"></ha-icon></span>
         <span class="pp-tt"><b id="pp-title">${esc(o.title || "")}</b><span id="pp-sub">${esc(o.sub || "")}</span></span>
@@ -5799,13 +6086,14 @@ function prismPopup(o) {
       if (o.onClose) o.onClose();
     },
     setSub(txt) { root.getElementById("pp-sub").textContent = txt; },
-    addAction(icon, label, fn) {
+    addAction(icon, label, fn, text) {
       const b = document.createElement("button");
-      b.className = "pp-btn"; b.type = "button"; b.title = label;
+      b.className = text ? "pp-txt" : "pp-btn"; b.type = "button"; b.title = label;
       b.setAttribute("aria-label", label);
-      b.innerHTML = `<ha-icon icon="${esc(icon)}"></ha-icon>`;
+      b.innerHTML = `<ha-icon icon="${esc(icon)}"></ha-icon>${text ? `<span>${esc(text)}</span>` : ""}`;
       b.addEventListener("click", fn);
       root.querySelector(".pp-acts").appendChild(b);
+      return b;
     },
   };
   root.getElementById("pp-close").addEventListener("click", () => pop.close());
