@@ -69,7 +69,7 @@
 (function () {
 "use strict";
 
-const PRISM_VERSION = "v59";
+const PRISM_VERSION = "v59.1";
 /* Zahlen- und Datumsformat folgt der Sprache des angemeldeten Benutzers */
 let PRISM_LOCALE = "de-DE";
 window.customCards = window.customCards || [];
@@ -1353,12 +1353,8 @@ dialog.lp{--amber:var(--prism-theme-amber,#FFC24B);--rose:var(--prism-theme-rose
 @media (prefers-reduced-motion: reduce){.lp-s .fill,.lp-sw,.lp-sw i,.lp-fold .chev{transition:none}}
 `;
 
-/* Nutzungszählung der Lampen, geteilt von allen Licht-Karten der Seite */
-const LIGHT_USE = { ts: 0, counts: null, pending: null };
-try {
-  const saved = JSON.parse(localStorage.getItem("prism-light-use") || "null");
-  if (saved && saved.counts && typeof saved.ts === "number") { LIGHT_USE.ts = saved.ts; LIGHT_USE.counts = saved.counts; }
-} catch (e) { /* kein Speicher verfügbar */ }
+/* Aufräumen: die frühere Nutzungszählung lag im Browser */
+try { localStorage.removeItem("prism-light-use"); } catch (e) { /* egal */ }
 
 class PrismLightCard extends PrismCard {
   static defaults = { title: "Licht", exclude_label: "no-dashboard", include_switches: false };
@@ -1451,48 +1447,10 @@ class PrismLightCard extends PrismCard {
       this._openLights(row ? row.getAttribute("data-mi") : null);
     });
   }
-  onHass() {
-    if (this._pop && this._pop.sync) this._pop.sync();
-    /* Die Nutzungszählung im Hintergrund holen, damit das Fenster gleich richtig sortiert öffnet */
-    if (!this._useAsked && this._hass && this._config && !(this._config.tap_action && this._config.tap_action.action)) {
-      this._useAsked = true;
-      setTimeout(() => { if (this.isConnected) this._loadUse(this._collect()); }, 4000);
-    }
-  }
+  onHass() { if (this._pop && this._pop.sync) this._pop.sync(); }
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._pop) this._pop.close();
-  }
-
-  /* Wie oft jede Lampe in den letzten 14 Tagen eingeschaltet wurde. Die Zahlen
-     kommen aus dem Verlauf von Home Assistant, gelten sechs Stunden und liegen
-     auch im Browser, damit die Reihenfolge sofort stimmt. Liefert true, wenn
-     neue Zahlen geladen wurden. */
-  _loadUse(ids) {
-    if (LIGHT_USE.counts && Date.now() - LIGHT_USE.ts < 6 * 3600 * 1000) return Promise.resolve(false);
-    if (LIGHT_USE.pending) return LIGHT_USE.pending;
-    if (!ids.length || !this._hass || !this._hass.callWS) return Promise.resolve(false);
-    LIGHT_USE.pending = this._hass.callWS({
-      type: "history/history_during_period",
-      start_time: new Date(Date.now() - 14 * 86400 * 1000).toISOString(),
-      entity_ids: ids, minimal_response: true, no_attributes: true, significant_changes_only: true,
-    }).then((res) => {
-      const counts = {};
-      ids.forEach((id) => {
-        const rows = (res && res[id]) || [];
-        let prev = rows.length ? (rows[0].s !== undefined ? rows[0].s : rows[0].state) : null, n = 0;
-        for (let i = 1; i < rows.length; i++) {
-          const v = rows[i].s !== undefined ? rows[i].s : rows[i].state;
-          if (v === "on" && prev !== "on") n++;
-          prev = v;
-        }
-        counts[id] = n;
-      });
-      LIGHT_USE.counts = counts; LIGHT_USE.ts = Date.now(); LIGHT_USE.pending = null;
-      try { localStorage.setItem("prism-light-use", JSON.stringify({ ts: LIGHT_USE.ts, counts })); } catch (e) { /* egal */ }
-      return true;
-    }).catch(() => { LIGHT_USE.pending = null; return false; });
-    return LIGHT_USE.pending;
   }
 
   /* ---------- Lichtsteuerung ----------
@@ -1608,23 +1566,18 @@ class PrismLightCard extends PrismCard {
       const list = root.querySelector(".lp-list");
       const secs = [...list.querySelectorAll(".lp-room")];
       const name = (sec) => order[+sec.getAttribute("data-r")];
-      /* Oben die Räume mit Licht. Darunter die übrigen nach Nutzung: wo in den
-         letzten zwei Wochen am häufigsten eingeschaltet wurde, steht vorn.
-         Solange die Zählung fehlt, entscheidet, wo zuletzt geschaltet wurde. */
-      const use = LIGHT_USE.counts;
-      const info = new Map(secs.map((sec) => {
-        const list = rooms.get(name(sec));
-        return [sec, {
-          lit: sec.classList.contains("lit") ? 0 : 1,
-          n: use ? list.reduce((sum, id) => sum + (use[id] || 0), 0) : 0,
-          last: Math.max(0, ...list.map((id) => (st(id) && st(id).state !== "unavailable" && Date.parse(st(id).last_changed)) || 0)),
-        }];
-      }));
+      /* Oben die Räume mit Licht. Darunter die übrigen in der Reihenfolge,
+         in der dort zuletzt geschaltet wurde — der jüngste zuerst. */
+      const info = new Map(secs.map((sec) => [sec, {
+        lit: sec.classList.contains("lit"),
+        last: Math.max(0, ...rooms.get(name(sec)).map((id) =>
+          (st(id) && st(id).state !== "unavailable" && Date.parse(st(id).last_changed)) || 0)),
+      }]));
       const want = secs.slice().sort((a, b) => {
         const x = info.get(a), y = info.get(b);
-        if (x.lit !== y.lit) return x.lit - y.lit;
-        if (!x.lit) return name(a).localeCompare(name(b), "de");
-        return y.n - x.n || y.last - x.last || name(a).localeCompare(name(b), "de");
+        if (x.lit !== y.lit) return x.lit ? -1 : 1;
+        if (x.lit) return name(a).localeCompare(name(b), "de");
+        return y.last - x.last || name(a).localeCompare(name(b), "de");
       });
       if (want.every((sec, i) => sec === secs[i])) return;
       const active = root.getRootNode().activeElement;
@@ -1752,8 +1705,6 @@ class PrismLightCard extends PrismCard {
     });
 
     pop.sync();
-    /* Kommt die Zählung erst jetzt an, wird einmal neu sortiert */
-    this._loadUse(ids).then((fresh) => { if (fresh && pop.open) pop.sync(); });
     if (focusRoom) {
       const sec = root.querySelector(`.lp-room[data-r="${order.indexOf(focusRoom)}"]`);
       if (sec && order.indexOf(focusRoom) > 0) sec.scrollIntoView({ block: "start" });
